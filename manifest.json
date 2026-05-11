@@ -1,0 +1,58 @@
+{
+  "manifest_version": 3,
+  "name": "HaloPlus",
+  "version": "1.0.3",
+  "description": "Productivity, workflow, and data tools for HaloITSM and HaloPSA.",
+  "homepage_url": "https://www.gethaloplus.com",
+  "permissions": [
+    "activeTab",
+    "clipboardWrite",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.halopsa.com/*",
+    "*://*.haloitsm.com/*",
+    "*://*.haloservicedesk.com/*"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.halopsa.com/*",
+        "*://*.haloitsm.com/*",
+        "*://*.haloservicedesk.com/*"
+      ],
+      "js": ["content/content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "HaloPlus",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png"
+    },
+    "default_popup": "sidepanel/panel.html"
+  },
+  "web_accessible_resources": [{
+    "resources": ["schema/requesttypes.json"],
+    "matches": [
+      "*://*.halopsa.com/*",
+      "*://*.haloitsm.com/*",
+      "*://*.haloservicedesk.com/*",
+      "<all_urls>"
+    ]
+  }],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

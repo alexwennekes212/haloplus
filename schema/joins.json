@@ -1,0 +1,256 @@
+{
+  "joins": [
+    {
+      "from": { "table": "faults", "column": "Faultid" },
+      "to": { "table": "actions", "column": "Faultid" },
+      "type": "one-to-many",
+      "label": "Ticket → Actions"
+    },
+    {
+      "from": { "table": "faults", "column": "Faultid" },
+      "to": { "table": "faultscustom1", "column": "PKid" },
+      "type": "one-to-one",
+      "label": "Ticket → Custom fields"
+    },
+    {
+      "from": { "table": "faults", "column": "UserID" },
+      "to": { "table": "users", "column": "uid" },
+      "type": "many-to-one",
+      "label": "Ticket → End user"
+    },
+    {
+      "from": { "table": "faults", "column": "Status" },
+      "to": { "table": "tstatus", "column": "TStatus" },
+      "type": "many-to-one",
+      "label": "Ticket → Status"
+    },
+    {
+      "from": { "table": "faults", "column": "Seriousness" },
+      "to": { "table": "policy", "column": "PPolicy" },
+      "type": "many-to-one",
+      "label": "Ticket → Priority"
+    },
+    {
+      "from": { "table": "faults", "column": "SiteNumber" },
+      "to": { "table": "site", "column": "SSitenum" },
+      "type": "many-to-one",
+      "label": "Ticket → Site"
+    },
+    {
+      "from": { "table": "faults", "column": "Areaint" },
+      "to": { "table": "area", "column": "AArea" },
+      "type": "many-to-one",
+      "label": "Ticket → Organisation"
+    },
+    {
+      "from": { "table": "faults", "column": "RequestTypeNew" },
+      "to": { "table": "requesttype", "column": "RTID" },
+      "type": "many-to-one",
+      "label": "Ticket → Ticket type"
+    },
+    {
+      "from": { "table": "faults", "column": "SLAID" },
+      "to": { "table": "slahead", "column": "SLID" },
+      "type": "many-to-one",
+      "label": "Ticket → SLA"
+    },
+    {
+      "from": { "table": "faults", "column": "DeviceNumber" },
+      "to": { "table": "device", "column": "DDevNum" },
+      "type": "many-to-one",
+      "label": "Ticket → Primary asset"
+    },
+    {
+      "from": { "table": "faults", "column": "AssignedToInt" },
+      "to": { "table": "uname", "column": "UNum" },
+      "type": "many-to-one",
+      "label": "Ticket → Assigned agent"
+    },
+    {
+      "from": { "table": "faults", "column": "ClearWhoInt" },
+      "to": { "table": "uname", "column": "UNum" },
+      "type": "many-to-one",
+      "label": "Ticket → Closed-by agent"
+    },
+    {
+      "from": { "table": "faults", "column": "FServiceid" },
+      "to": { "table": "servsite", "column": "STid" },
+      "type": "many-to-one",
+      "label": "Ticket → Service"
+    },
+    {
+      "from": { "table": "faults", "column": "FFlowID" },
+      "to": { "table": "flowheader", "column": "FHid" },
+      "type": "many-to-one",
+      "label": "Ticket → Workflow"
+    },
+    {
+      "from": { "table": "faults", "column": "Supplier" },
+      "to": { "table": "company", "column": "CNum" },
+      "type": "many-to-one",
+      "label": "Ticket → Supplier"
+    },
+    {
+      "from": { "table": "faults", "column": "Faultid" },
+      "to": { "table": "feedback", "column": "FBFaultid" },
+      "type": "one-to-one",
+      "label": "Ticket → Feedback"
+    },
+    {
+      "from": { "table": "faults", "column": "Faultid" },
+      "to": { "table": "faultapproval", "column": "FAid" },
+      "type": "one-to-one",
+      "label": "Ticket → Approval"
+    },
+    {
+      "from": { "table": "faults", "column": "Faultid" },
+      "to": { "table": "resourcetimelog", "column": "RTLFaultid" },
+      "type": "one-to-many",
+      "label": "Ticket → Reassignment log"
+    },
+    {
+      "from": { "table": "users", "column": "Usite" },
+      "to": { "table": "site", "column": "SSitenum" },
+      "type": "many-to-one",
+      "label": "User → Site"
+    },
+    {
+      "from": { "table": "site", "column": "SArea" },
+      "to": { "table": "area", "column": "AArea" },
+      "type": "many-to-one",
+      "label": "Site → Organisation"
+    },
+    {
+      "from": { "table": "area", "column": "AtreeID" },
+      "to": { "table": "tree", "column": "TreeID" },
+      "type": "many-to-one",
+      "label": "Organisation → Department"
+    },
+    {
+      "from": { "table": "uname", "column": "USection" },
+      "to": { "table": "sectiondetail", "column": "SDSectionName" },
+      "type": "many-to-one",
+      "label": "Agent → Team"
+    },
+    {
+      "from": { "table": "sectiondetail", "column": "SDDepartmentid" },
+      "to": { "table": "tree", "column": "TreeID" },
+      "type": "many-to-one",
+      "label": "Team → Department"
+    },
+    {
+      "from": { "table": "device", "column": "DSite" },
+      "to": { "table": "site", "column": "SSitenum" },
+      "type": "many-to-one",
+      "label": "Asset → Site"
+    },
+    {
+      "from": { "table": "device", "column": "DTYPE" },
+      "to": { "table": "xtype", "column": "TTypeNum" },
+      "type": "many-to-one",
+      "label": "Asset → Asset type"
+    },
+    {
+      "from": { "table": "device", "column": "DCompanyNum" },
+      "to": { "table": "company", "column": "CNum" },
+      "type": "many-to-one",
+      "label": "Asset → Supplier"
+    },
+    {
+      "from": { "table": "xtype", "column": "TGeneric" },
+      "to": { "table": "generic", "column": "GGeneric" },
+      "type": "many-to-one",
+      "label": "Asset type → Asset group"
+    },
+    {
+      "from": { "table": "policy", "column": "PSLAID" },
+      "to": { "table": "slahead", "column": "SLID" },
+      "type": "many-to-one",
+      "label": "Priority → SLA"
+    },
+    {
+      "from": { "table": "company", "column": "CTree" },
+      "to": { "table": "tree", "column": "TreeID" },
+      "type": "many-to-one",
+      "label": "Supplier → Department"
+    },
+    {
+      "from": { "table": "company", "column": "CNum" },
+      "to": { "table": "contract", "column": "CNCompanyNum" },
+      "type": "one-to-many",
+      "label": "Supplier → Contracts"
+    },
+    {
+      "from": { "table": "servsite", "column": "STSvcid" },
+      "to": { "table": "servicecategory", "column": "Svcid" },
+      "type": "many-to-one",
+      "label": "Service → Category"
+    },
+    {
+      "from": { "table": "servsite", "column": "STIncidentrtid" },
+      "to": { "table": "requesttype", "column": "RTID" },
+      "type": "many-to-one",
+      "label": "Service → Incident type"
+    },
+    {
+      "from": { "table": "servsite", "column": "STid" },
+      "to": { "table": "servicerequestdetails", "column": "SRDstid" },
+      "type": "one-to-many",
+      "label": "Service → Request options"
+    },
+    {
+      "from": { "table": "flowheader", "column": "FHid" },
+      "to": { "table": "flowstages", "column": "FsFhid" },
+      "type": "one-to-many",
+      "label": "Workflow → Stages"
+    },
+    {
+      "from": { "table": "faultapproval", "column": "FAApid" },
+      "to": { "table": "approvalprocess", "column": "APid" },
+      "type": "many-to-one",
+      "label": "Approval → Approval process"
+    },
+    {
+      "from": { "table": "kbentry", "column": "Whocreated" },
+      "to": { "table": "uname", "column": "UNum" },
+      "type": "many-to-one",
+      "label": "KB article → Author agent"
+    },
+    {
+      "from": { "table": "faqlisthead", "column": "FAQid" },
+      "to": { "table": "faqlistdet", "column": "FAQDid" },
+      "type": "one-to-many",
+      "label": "FAQ list → KB articles"
+    },
+    {
+      "from": { "table": "faqlistdet", "column": "FAQDkbid" },
+      "to": { "table": "kbentry", "column": "id" },
+      "type": "many-to-one",
+      "label": "FAQ link → KB article"
+    },
+    {
+      "from": { "table": "stocklevel", "column": "SLid" },
+      "to": { "table": "item", "column": "Iid" },
+      "type": "many-to-one",
+      "label": "Stock level → Item"
+    },
+    {
+      "from": { "table": "item", "column": "IGeneric" },
+      "to": { "table": "generic", "column": "GGeneric" },
+      "type": "many-to-one",
+      "label": "Item → Asset group"
+    },
+    {
+      "from": { "table": "item", "column": "ISupplier" },
+      "to": { "table": "company", "column": "CNum" },
+      "type": "many-to-one",
+      "label": "Item → Supplier"
+    },
+    {
+      "from": { "table": "resourcetimelog", "column": "RTLUnum" },
+      "to": { "table": "uname", "column": "UNum" },
+      "type": "many-to-one",
+      "label": "Reassignment → Agent"
+    }
+  ]
+}

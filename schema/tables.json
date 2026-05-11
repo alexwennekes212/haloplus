@@ -1,0 +1,515 @@
+{
+  "faults": {
+    "alias": "F",
+    "label": "Tickets",
+    "description": "All ticket/request/incident data (legacy name: faults)",
+    "columns": {
+      "Faultid": { "type": "int", "pk": true, "label": "Ticket ID" },
+      "Username": { "type": "nvarchar", "label": "End user name" },
+      "UserID": { "type": "int", "label": "User ID", "fk": "users.uid" },
+      "PhoneNumber": { "type": "nvarchar", "label": "Phone number" },
+      "Symptom": { "type": "nvarchar", "label": "Ticket status text" },
+      "Status": { "type": "int", "label": "Status ID", "fk": "tstatus.TStatus" },
+      "Seriousness": { "type": "int", "label": "Priority ID", "fk": "policy.PPolicy" },
+      "DateOccured": { "type": "datetime", "label": "Date/time opened" },
+      "SiteNumber": { "type": "int", "label": "Site ID", "fk": "site.SSitenum" },
+      "Areaint": { "type": "int", "label": "Client/Organisation ID", "fk": "area.AArea" },
+      "Sectio_": { "type": "nvarchar", "label": "Team/section name" },
+      "RequestTypeNew": { "type": "int", "label": "Ticket type ID", "fk": "requesttype.RTID" },
+      "FServiceid": { "type": "int", "label": "Service ID", "fk": "servsite.STid" },
+      "ShowOnWeb": { "type": "bool", "label": "Visible on portal" },
+      "SLAID": { "type": "int", "label": "SLA ID", "fk": "slahead.SLID" },
+      "SLAState": { "type": "nvarchar", "label": "SLA state (null=Awaiting, I=Inside, O=Outside, E=Excluded)" },
+      "DeviceNumber": { "type": "int", "label": "Primary asset ID", "fk": "device.DDevNum" },
+      "DevSite": { "type": "int", "label": "Primary asset site ID", "fk": "device.DSite" },
+      "FixByDate": { "type": "datetime", "label": "Resolution due date" },
+      "ClearTime": { "type": "float", "label": "Time to resolve" },
+      "Clearance": { "type": "ntext", "label": "Closure note" },
+      "DateCleared": { "type": "datetime", "label": "Date/time closed" },
+      "AssignedToInt": { "type": "int", "label": "Assigned agent ID", "fk": "uname.UNum" },
+      "ClearWhoInt": { "type": "int", "label": "Closed by agent ID", "fk": "uname.UNum" },
+      "Category2": { "type": "nvarchar", "label": "Category 2" },
+      "Category3": { "type": "nvarchar", "label": "Category 3" },
+      "Category4": { "type": "nvarchar", "label": "Category 4" },
+      "Category5": { "type": "nvarchar", "label": "Category 5" },
+      "FFlowID": { "type": "int", "label": "Workflow ID", "fk": "flowheader.FHid" },
+      "Supplier": { "type": "int", "label": "Supplier ID", "fk": "company.CNum" }
+    }
+  },
+
+  "faultscustom1": {
+    "alias": "FC1",
+    "label": "Ticket custom fields",
+    "description": "Custom field values on tickets. Column names match your custom field names (e.g., CFMISeverity).",
+    "columns": {
+      "PKid": { "type": "int", "pk": true, "label": "Ticket ID", "fk": "faults.Faultid" }
+    },
+    "note": "Columns are dynamic — each custom field you create in Halo becomes a column in this table."
+  },
+
+  "actions": {
+    "alias": "Ac",
+    "label": "Ticket actions/activity",
+    "description": "Every action on a ticket: notes, emails, status changes, time entries",
+    "columns": {
+      "Faultid": { "type": "int", "pk": true, "label": "Ticket ID", "fk": "faults.Faultid" },
+      "ActionNumber": { "type": "int", "pk": true, "label": "Action sequence number" },
+      "ActOutcome": { "type": "nvarchar", "label": "Action description/outcome" },
+      "Who": { "type": "nvarchar", "label": "Who performed the action" },
+      "Whe_": { "type": "datetime", "label": "Action timestamp" },
+      "Note": { "type": "ntext", "label": "Action note (plain text)" },
+      "TimeTaken": { "type": "float", "label": "Time logged (minutes)" },
+      "DateEmailed": { "type": "datetime", "label": "Email sent timestamp" },
+      "EmailBody": { "type": "ntext", "label": "Email body (plain text)" },
+      "ActionHide": { "type": "bool", "label": "Hidden from end user (1=hidden)" }
+    }
+  },
+
+  "users": {
+    "alias": "U",
+    "label": "End users",
+    "description": "End-user/customer contact records",
+    "columns": {
+      "uid": { "type": "int", "pk": true, "label": "User ID" },
+      "Usite": { "type": "int", "label": "Site ID", "fk": "site.SSitenum" },
+      "UUsername": { "type": "nvarchar(255)", "label": "Username" },
+      "Uextn": { "type": "nvarchar(30)", "label": "Main phone number" },
+      "UMobile": { "type": "nvarchar(30)", "label": "Mobile number" },
+      "UEmail": { "type": "nvarchar(255)", "label": "Email address" },
+      "UNotes": { "type": "ntext", "label": "User notes" },
+      "ULogin": { "type": "nvarchar(30)", "label": "Windows login" },
+      "UInactive": { "type": "bool", "label": "Inactive (1=yes)" }
+    }
+  },
+
+  "site": {
+    "alias": "S",
+    "label": "Sites",
+    "description": "Site/location records belonging to organisations",
+    "columns": {
+      "SSitenum": { "type": "int", "pk": true, "label": "Site ID" },
+      "SDesc": { "type": "nvarchar(255)", "label": "Site name" },
+      "SArea": { "type": "int", "label": "Client/Organisation ID", "fk": "area.AArea" },
+      "SIsInactive": { "type": "bool", "label": "Inactive (1=yes)" },
+      "STimezoneName": { "type": "nvarchar(255)", "label": "Timezone" },
+      "SMemo": { "type": "ntext", "label": "Site notes" }
+    }
+  },
+
+  "area": {
+    "alias": "A",
+    "label": "Organisations/Clients",
+    "description": "Top-level organisation/client/area records",
+    "columns": {
+      "AArea": { "type": "int", "pk": true, "label": "Organisation ID" },
+      "AAreaDesc": { "type": "nvarchar(255)", "label": "Organisation name" },
+      "AMemo": { "type": "ntext", "label": "General notes" },
+      "ATechNote": { "type": "ntext", "label": "Agent pop-up note" },
+      "AtreeID": { "type": "int", "label": "Top level/department ID", "fk": "tree.TreeID" },
+      "AIsInactive": { "type": "bool", "label": "Inactive (1=yes)" }
+    }
+  },
+
+  "tree": {
+    "alias": "T",
+    "label": "Departments/Top levels",
+    "description": "Department and top-level groupings for organisations",
+    "columns": {
+      "TreeID": { "type": "int", "pk": true, "label": "Department ID" },
+      "TreeDesc": { "type": "nvarchar(40)", "label": "Department name" }
+    }
+  },
+
+  "uname": {
+    "alias": "UN",
+    "label": "Agents",
+    "description": "Agent/technician records",
+    "columns": {
+      "UNum": { "type": "int", "pk": true, "label": "Agent ID" },
+      "UName": { "type": "nvarchar(255)", "label": "Agent name" },
+      "USection": { "type": "nvarchar(255)", "label": "Default team", "fk": "sectiondetail.SDSectionName" },
+      "USMTP": { "type": "nvarchar(255)", "label": "Email address" },
+      "USMS": { "type": "nvarchar(50)", "label": "Phone number" },
+      "UAD": { "type": "nvarchar(50)", "label": "Windows username" },
+      "UIsDisabled": { "type": "bool", "label": "Disabled (1=yes)" },
+      "UJobTitle": { "type": "nvarchar(50)", "label": "Job title" }
+    }
+  },
+
+  "sectiondetail": {
+    "alias": "SD",
+    "label": "Teams",
+    "description": "Team/section configuration",
+    "columns": {
+      "SDid": { "type": "int", "pk": true, "label": "Team ID" },
+      "SDSectionName": { "type": "nvarchar(255)", "label": "Team name" },
+      "SDDepartmentid": { "type": "int", "label": "Department ID", "fk": "tree.TreeID" },
+      "SDInactive": { "type": "bool", "label": "Inactive (1=yes)" }
+    }
+  },
+
+  "device": {
+    "alias": "D",
+    "label": "Assets/Devices",
+    "description": "Asset and device records",
+    "columns": {
+      "DDevNum": { "type": "int", "pk": true, "label": "Asset ID (per site)" },
+      "DSite": { "type": "int", "pk": true, "label": "Asset site ID" },
+      "DInvNo": { "type": "nvarchar(255)", "label": "Asset tag / inventory number" },
+      "DID": { "type": "nvarchar(255)", "label": "Asset identifier" },
+      "DTYPE": { "type": "int", "label": "Asset type ID", "fk": "xtype.TTypeNum" },
+      "DCompanyNum": { "type": "int", "label": "Supplier ID", "fk": "company.CNum" }
+    }
+  },
+
+  "userdevice": {
+    "alias": "UD",
+    "label": "User-Asset links",
+    "description": "Links between end users and their assigned assets",
+    "columns": {
+      "UDsite": { "type": "int", "pk": true, "label": "User site ID" },
+      "UDusername": { "type": "int", "pk": true, "label": "Username of linked user" },
+      "UDdevsite": { "type": "nvarchar(255)", "label": "Device site ID" },
+      "UDdevnum": { "type": "nvarchar(255)", "label": "Device ID" }
+    }
+  },
+
+  "xtype": {
+    "alias": "XT",
+    "label": "Asset types",
+    "description": "Asset type definitions",
+    "columns": {
+      "TTypeNum": { "type": "int", "pk": true, "label": "Asset type ID" },
+      "TDesc": { "type": "nvarchar(255)", "label": "Asset type name" },
+      "TGeneric": { "type": "int", "label": "Asset group ID", "fk": "generic.GGeneric" }
+    }
+  },
+
+  "generic": {
+    "alias": "G",
+    "label": "Asset groups",
+    "description": "Asset group definitions",
+    "columns": {
+      "GGeneric": { "type": "int", "pk": true, "label": "Asset group ID" },
+      "GDesc": { "type": "nvarchar(255)", "label": "Group name" }
+    }
+  },
+
+  "deviceinfo": {
+    "alias": null,
+    "label": "Asset field data",
+    "description": "Stores custom field values for assets (join via inum to Device.DID)",
+    "columns": {
+      "inum": { "type": "int", "label": "Asset identifier", "fk": "device.DID" },
+      "iseq": { "type": "int", "label": "Field sequence ID" },
+      "idata": { "type": "varchar", "label": "Field value" }
+    }
+  },
+
+  "typeinfo": {
+    "alias": null,
+    "label": "Asset type-field mapping",
+    "description": "Links asset types to their field definitions",
+    "columns": {
+      "xnum": { "type": "int", "label": "Asset type ID", "fk": "device.DTYPE" },
+      "xseq": { "type": "int", "label": "Field sequence", "fk": "deviceinfo.iseq" },
+      "xfieldnos": { "type": "int", "label": "Field ID", "fk": "field.yseq" }
+    }
+  },
+
+  "field": {
+    "alias": null,
+    "label": "Asset field definitions",
+    "description": "Defines available asset/device fields (filter by ykind='T' for device fields)",
+    "columns": {
+      "yseq": { "type": "int", "pk": true, "label": "Field ID" },
+      "yname": { "type": "varchar", "label": "Field name" },
+      "ykind": { "type": "varchar", "label": "Field kind (T=device field)" }
+    }
+  },
+
+  "requesttype": {
+    "alias": "RT",
+    "label": "Ticket types",
+    "description": "Ticket type definitions (incident, request, problem, change, etc.)",
+    "columns": {
+      "RTID": { "type": "int", "pk": true, "label": "Ticket type ID" },
+      "RTDesc": { "type": "nvarchar(255)", "label": "Ticket type name" }
+    }
+  },
+
+  "tstatus": {
+    "alias": "TS",
+    "label": "Ticket statuses",
+    "description": "Ticket status definitions",
+    "columns": {
+      "TStatus": { "type": "int", "pk": true, "label": "Status ID" },
+      "TStatusDesc": { "type": "nvarchar(255)", "label": "Status name" }
+    }
+  },
+
+  "slahead": {
+    "alias": "SL",
+    "label": "SLAs",
+    "description": "SLA definitions",
+    "columns": {
+      "SLID": { "type": "int", "pk": true, "label": "SLA ID" },
+      "SLDesc": { "type": "nvarchar(255)", "label": "SLA name" }
+    }
+  },
+
+  "policy": {
+    "alias": "P",
+    "label": "SLA priorities",
+    "description": "Priority levels within SLAs, with response/resolution targets",
+    "columns": {
+      "PPolicy": { "type": "int", "pk": true, "label": "Priority ID" },
+      "PSLAID": { "type": "int", "label": "SLA ID", "fk": "slahead.SLID" },
+      "PDesc": { "type": "nvarchar(30)", "label": "Priority name" },
+      "PTime": { "type": "float", "label": "Resolution target (in units)" },
+      "PUnits": { "type": "nvarchar(1)", "label": "Time units (H=Hours, D=Days)" },
+      "PResponseTime": { "type": "float", "label": "Response target (in units)" },
+      "PResponseUnits": { "type": "nvarchar(1)", "label": "Response units (H=Hours, D=Days)" }
+    }
+  },
+
+  "company": {
+    "alias": "C",
+    "label": "Suppliers",
+    "description": "Supplier/vendor records",
+    "columns": {
+      "CNum": { "type": "int", "pk": true, "label": "Supplier ID" },
+      "CDesc": { "type": "nvarchar(255)", "label": "Supplier name" },
+      "CTree": { "type": "int", "label": "Top level ID", "fk": "tree.TreeID" },
+      "CIsInactive": { "type": "bool", "label": "Inactive (1=yes)" }
+    }
+  },
+
+  "servsite": {
+    "alias": "ST",
+    "label": "Services",
+    "description": "Service catalogue entries",
+    "columns": {
+      "STid": { "type": "int", "pk": true, "label": "Service ID" },
+      "STDesc": { "type": "nvarchar(255)", "label": "Service name" },
+      "STSvcid": { "type": "int", "label": "Service category ID", "fk": "servicecategory.Svcid" },
+      "STSummary": { "type": "nvarchar(255)", "label": "Service summary" },
+      "STIncidentrtid": { "type": "int", "label": "Linked incident type ID", "fk": "requesttype.RTID" }
+    }
+  },
+
+  "servicecategory": {
+    "alias": "SVC",
+    "label": "Service categories",
+    "description": "Service catalogue categories",
+    "columns": {
+      "Svcid": { "type": "int", "pk": true, "label": "Category ID" },
+      "SvcDesc": { "type": "nvarchar(255)", "label": "Category name" }
+    }
+  },
+
+  "servicerequestdetails": {
+    "alias": "SRD",
+    "label": "Service request options",
+    "description": "Request options available within a service",
+    "columns": {
+      "SRDstid": { "type": "int", "pk": true, "label": "Service ID", "fk": "servsite.STid" },
+      "SRDServiceRequestLbl": { "type": "nvarchar(255)", "label": "Option name" },
+      "SRDServicertid": { "type": "int", "label": "Ticket type ID", "fk": "requesttype.RTID" },
+      "SRDTemplateid": { "type": "int", "label": "Template ID", "fk": "stdrequest.STDid" }
+    }
+  },
+
+  "flowheader": {
+    "alias": "FH",
+    "label": "Workflows",
+    "description": "Workflow definitions",
+    "columns": {
+      "FHid": { "type": "int", "pk": true, "label": "Workflow ID" },
+      "FHName": { "type": "nvarchar(255)", "label": "Workflow name" }
+    }
+  },
+
+  "flowstages": {
+    "alias": "FS",
+    "label": "Workflow stages",
+    "description": "Stages within a workflow",
+    "columns": {
+      "FsFhid": { "type": "int", "label": "Workflow ID", "fk": "flowheader.FHid" },
+      "FsSeq": { "type": "int", "pk": true, "label": "Stage sequence" },
+      "FsDesc": { "type": "nvarchar(255)", "label": "Stage name" }
+    }
+  },
+
+  "faultapproval": {
+    "alias": "FA",
+    "label": "Ticket approvals",
+    "description": "Approval records linked to tickets",
+    "columns": {
+      "FAid": { "type": "int", "pk": true, "label": "Ticket ID", "fk": "faults.Faultid" },
+      "FAApid": { "type": "int", "label": "Approval process ID", "fk": "approvalprocess.APid" }
+    }
+  },
+
+  "approvalprocess": {
+    "alias": "AP",
+    "label": "Approval processes",
+    "description": "Approval process definitions",
+    "columns": {
+      "APid": { "type": "int", "pk": true, "label": "Process ID" },
+      "APDesc": { "type": "int", "label": "Process name" }
+    }
+  },
+
+  "contract": {
+    "alias": "CN",
+    "label": "Contracts",
+    "description": "Supplier/vendor contracts",
+    "columns": {
+      "CNid": { "type": "int", "pk": true, "label": "Contract ID" },
+      "CNCompanyNum": { "type": "int", "label": "Supplier ID", "fk": "company.CNum" },
+      "CNContractCode": { "type": "int", "label": "Contract reference" },
+      "CNStartDate": { "type": "datetime", "label": "Start date" },
+      "CNEndDate": { "type": "datetime", "label": "End date" },
+      "CNContractDesc": { "type": "nvarchar(255)", "label": "Description" },
+      "CNActive": { "type": "bool", "label": "Active (1=yes)" }
+    }
+  },
+
+  "faqlisthead": {
+    "alias": "FAQ",
+    "label": "FAQ lists",
+    "description": "FAQ list and group definitions",
+    "columns": {
+      "FAQid": { "type": "int", "pk": true, "label": "FAQ list ID" },
+      "FAQListDesc": { "type": "int", "label": "FAQ description" },
+      "FAQAvailableToAll": { "type": "bool", "label": "Available to all (1=yes)" },
+      "FAQLevel": { "type": "int", "label": "Level (1=Group, 0=List)" },
+      "FAQLevelFAQid": { "type": "int", "label": "Parent group ID", "fk": "faqlisthead.FAQid" }
+    }
+  },
+
+  "faqlistdet": {
+    "alias": "FAQD",
+    "label": "FAQ-article links",
+    "description": "Links FAQ lists to knowledge base articles",
+    "columns": {
+      "FAQDid": { "type": "int", "pk": true, "label": "FAQ list ID", "fk": "faqlisthead.FAQid" },
+      "FAQDkbid": { "type": "int", "label": "KB article ID", "fk": "kbentry.id" }
+    }
+  },
+
+  "faqclient": {
+    "alias": "FAQC",
+    "label": "FAQ client access",
+    "description": "Which FAQ lists are available to which clients",
+    "columns": {
+      "FAQCid": { "type": "int", "pk": true, "label": "FAQ list ID", "fk": "faqlisthead.FAQid" },
+      "FAQCArea": { "type": "int", "label": "Client ID", "fk": "area.AArea" }
+    }
+  },
+
+  "faqsite": {
+    "alias": "FAQS",
+    "label": "FAQ site access",
+    "description": "Which FAQ lists are available to which sites",
+    "columns": {
+      "FAQSid": { "type": "int", "pk": true, "label": "FAQ list ID", "fk": "faqlisthead.FAQid" },
+      "FAQSSiteid": { "type": "int", "label": "Site ID", "fk": "site.SSitenum" }
+    }
+  },
+
+  "kbentry": {
+    "alias": "KB",
+    "label": "Knowledge base articles",
+    "description": "Knowledge base articles",
+    "columns": {
+      "id": { "type": "int", "pk": true, "label": "Article ID" },
+      "Abstract": { "type": "nvarchar(255)", "label": "Article title" },
+      "Description": { "type": "nvarchar(4000)", "label": "Article description" },
+      "Resolution": { "type": "nvarchar(4000)", "label": "Resolution content" },
+      "Whocreated": { "type": "int", "label": "Created by agent ID", "fk": "uname.UNum" }
+    }
+  },
+
+  "feedback": {
+    "alias": "FB",
+    "label": "Feedback/satisfaction",
+    "description": "Customer satisfaction feedback on tickets",
+    "columns": {
+      "FBFaultid": { "type": "int", "pk": true, "label": "Ticket ID", "fk": "faults.Faultid" },
+      "FBUsername": { "type": "nvarchar(255)", "label": "Username", "fk": "users.UUsername" },
+      "FBScore": { "type": "int", "label": "Score (1=Awesome, 2=Good, 3=OK, 4=Bad)" },
+      "FBDate": { "type": "datetime", "label": "Feedback date" },
+      "FBComment": { "type": "nvarchar(255)", "label": "Feedback comment" }
+    }
+  },
+
+  "resourcetimelog": {
+    "alias": "RTL",
+    "label": "Ticket reassignment log",
+    "description": "Tracks ticket team/agent reassignments",
+    "columns": {
+      "RTLFaultid": { "type": "int", "pk": true, "label": "Ticket ID", "fk": "faults.Faultid" },
+      "RTLSection": { "type": "nvarchar(40)", "label": "Team name" },
+      "RTLUnum": { "type": "int", "label": "Agent ID", "fk": "uname.UNum" }
+    }
+  },
+
+  "stdrequest": {
+    "alias": "STDR",
+    "label": "Templates/Scheduled tickets",
+    "description": "Ticket templates and scheduled ticket definitions",
+    "columns": {
+      "STDid": { "type": "int", "pk": true, "label": "Template ID" },
+      "STDRequestTypeDef": { "type": "int", "label": "Default ticket type" },
+      "STDAssignedToInt": { "type": "int", "label": "Default agent ID" },
+      "STDType": { "type": "int", "label": "ITIL type" }
+    }
+  },
+
+  "stocklocation": {
+    "alias": "SC",
+    "label": "Stock locations",
+    "description": "Stock storage locations",
+    "columns": {
+      "SCid": { "type": "int", "pk": true, "label": "Location ID", "fk": "site.SSitenum" },
+      "SCDesc": { "type": "nvarchar(255)", "label": "Location name" }
+    }
+  },
+
+  "stocklevel": {
+    "alias": "SLl",
+    "label": "Stock levels",
+    "description": "Current stock levels per item per location",
+    "columns": {
+      "SLid": { "type": "int", "pk": true, "label": "Item ID", "fk": "item.Iid" },
+      "SLlocation": { "type": "int", "label": "Location ID", "fk": "site.SSitenum" },
+      "SLqtyinstock": { "type": "float", "label": "Quantity in stock" }
+    }
+  },
+
+  "stockbin": {
+    "alias": "STB",
+    "label": "Stock bins",
+    "description": "Stock bin locations within sites",
+    "columns": {
+      "STBid": { "type": "int", "pk": true, "label": "Bin ID" },
+      "STBSsitenum": { "type": "int", "label": "Site ID", "fk": "site.SSitenum" },
+      "STBName": { "type": "nvarchar(255)", "label": "Bin name" }
+    }
+  },
+
+  "item": {
+    "alias": "I",
+    "label": "Stock items",
+    "description": "Inventory/stock item catalogue",
+    "columns": {
+      "Iid": { "type": "int", "pk": true, "label": "Item ID" },
+      "IDesc": { "type": "nvarchar(255)", "label": "Item name" },
+      "IGeneric": { "type": "int", "label": "Asset type ID", "fk": "generic.GGeneric" },
+      "ICostPrice": { "type": "float", "label": "Cost price" },
+      "ISupplier": { "type": "int", "label": "Supplier ID", "fk": "company.CNum" }
+    }
+  }
+}

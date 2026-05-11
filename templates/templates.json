@@ -1,0 +1,272 @@
+{
+  "categories": {
+    "lookups": {
+      "label": "Lookups",
+      "description": "SQL for field lookups — populate a field when another field changes",
+      "icon": "search",
+      "templates": [
+        {
+          "id": "lookup_latest_note",
+          "name": "Latest non-system note",
+          "description": "Gets the most recent action note that wasn't made by System",
+          "use_case": "Populate a custom field with the latest update note on the ticket",
+          "sql": "SELECT TOP 1\n  CONVERT(nvarchar(max), note) AS [lookup]\nFROM\n  actions a\nWHERE\n  faultid = $ticketid\n  AND who != 'System'\nORDER BY\n  whe_ DESC",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["actions"],
+          "tags": ["lookup", "actions", "notes"]
+        },
+        {
+          "id": "lookup_user_email",
+          "name": "Ticket user's email",
+          "description": "Gets the email address of the end user on the ticket",
+          "use_case": "Auto-fill an email field based on the ticket's user",
+          "sql": "SELECT TOP 1\n  u.UEmail AS [lookup]\nFROM\n  users u\n  INNER JOIN faults f ON f.UserID = u.uid\nWHERE\n  f.Faultid = $ticketid",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["users", "faults"],
+          "tags": ["lookup", "users", "email"]
+        },
+        {
+          "id": "lookup_user_site_name",
+          "name": "Ticket user's site name",
+          "description": "Gets the site name for the user on the ticket",
+          "use_case": "Display the user's site name in a custom field",
+          "sql": "SELECT TOP 1\n  s.SDesc AS [lookup]\nFROM\n  site s\n  INNER JOIN users u ON u.Usite = s.SSitenum\n  INNER JOIN faults f ON f.UserID = u.uid\nWHERE\n  f.Faultid = $ticketid",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["site", "users", "faults"],
+          "tags": ["lookup", "site", "users"]
+        },
+        {
+          "id": "lookup_org_name",
+          "name": "Organisation name",
+          "description": "Gets the organisation/client name for the ticket",
+          "use_case": "Show the client name in a field",
+          "sql": "SELECT TOP 1\n  a.AAreaDesc AS [lookup]\nFROM\n  area a\n  INNER JOIN faults f ON f.Areaint = a.AArea\nWHERE\n  f.Faultid = $ticketid",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["area", "faults"],
+          "tags": ["lookup", "organisation", "client"]
+        },
+        {
+          "id": "lookup_assigned_agent_email",
+          "name": "Assigned agent's email",
+          "description": "Gets the email address of the currently assigned agent",
+          "use_case": "Send notifications to the assigned agent",
+          "sql": "SELECT TOP 1\n  un.USMTP AS [lookup]\nFROM\n  uname un\n  INNER JOIN faults f ON f.AssignedToInt = un.UNum\nWHERE\n  f.Faultid = $ticketid",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["uname", "faults"],
+          "tags": ["lookup", "agent", "email"]
+        },
+        {
+          "id": "lookup_sla_name",
+          "name": "SLA name for ticket",
+          "description": "Gets the SLA name associated with the ticket",
+          "use_case": "Display the SLA name on the ticket",
+          "sql": "SELECT TOP 1\n  sl.SLDesc AS [lookup]\nFROM\n  slahead sl\n  INNER JOIN faults f ON f.SLAID = sl.SLID\nWHERE\n  f.Faultid = $ticketid",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["slahead", "faults"],
+          "tags": ["lookup", "sla"]
+        },
+        {
+          "id": "lookup_priority_name",
+          "name": "Priority name for ticket",
+          "description": "Gets the priority level name for the ticket",
+          "use_case": "Display the priority label",
+          "sql": "SELECT TOP 1\n  p.PDesc AS [lookup]\nFROM\n  policy p\n  INNER JOIN faults f ON f.Seriousness = p.PPolicy\nWHERE\n  f.Faultid = $ticketid",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["policy", "faults"],
+          "tags": ["lookup", "priority", "sla"]
+        },
+        {
+          "id": "lookup_ticket_count_user",
+          "name": "Open ticket count for user",
+          "description": "Counts how many open tickets the current user has",
+          "use_case": "Show workload indicator per user",
+          "sql": "SELECT\n  COUNT(*) AS [lookup]\nFROM\n  faults f\nWHERE\n  f.UserID = (SELECT UserID FROM faults WHERE Faultid = $ticketid)\n  AND f.DateCleared IS NULL",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["faults"],
+          "tags": ["lookup", "count", "users"]
+        },
+        {
+          "id": "lookup_time_spent",
+          "name": "Total time spent on ticket",
+          "description": "Sums all time entries on the current ticket",
+          "use_case": "Display total effort on the ticket",
+          "sql": "SELECT\n  ISNULL(SUM(a.TimeTaken), 0) AS [lookup]\nFROM\n  actions a\nWHERE\n  a.Faultid = $ticketid\n  AND a.TimeTaken > 0",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["actions"],
+          "tags": ["lookup", "time", "actions"]
+        },
+        {
+          "id": "lookup_asset_tag",
+          "name": "Primary asset tag",
+          "description": "Gets the asset tag/inventory number of the ticket's linked device",
+          "use_case": "Display the asset tag on the ticket",
+          "sql": "SELECT TOP 1\n  d.DInvNo AS [lookup]\nFROM\n  device d\n  INNER JOIN faults f ON f.DeviceNumber = d.DDevNum AND f.DevSite = d.DSite\nWHERE\n  f.Faultid = $ticketid",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["device", "faults"],
+          "tags": ["lookup", "asset", "device"]
+        }
+      ]
+    },
+    "reports": {
+      "label": "Reports",
+      "description": "SQL for custom report data sources",
+      "icon": "bar-chart",
+      "templates": [
+        {
+          "id": "report_tickets_by_agent",
+          "name": "Open tickets by agent",
+          "description": "Lists open ticket counts grouped by assigned agent",
+          "use_case": "Agent workload report",
+          "sql": "SELECT\n  un.UName AS [Agent],\n  COUNT(f.Faultid) AS [Open Tickets]\nFROM\n  faults f\n  INNER JOIN uname un ON f.AssignedToInt = un.UNum\nWHERE\n  f.DateCleared IS NULL\nGROUP BY\n  un.UName\nORDER BY\n  [Open Tickets] DESC",
+          "variables_used": [],
+          "tables_used": ["faults", "uname"],
+          "tags": ["report", "agent", "workload"]
+        },
+        {
+          "id": "report_tickets_by_status",
+          "name": "Tickets by status",
+          "description": "Counts tickets grouped by their current status",
+          "use_case": "Status distribution overview",
+          "sql": "SELECT\n  ts.TStatusDesc AS [Status],\n  COUNT(f.Faultid) AS [Count]\nFROM\n  faults f\n  INNER JOIN tstatus ts ON f.Status = ts.TStatus\nGROUP BY\n  ts.TStatusDesc\nORDER BY\n  [Count] DESC",
+          "variables_used": [],
+          "tables_used": ["faults", "tstatus"],
+          "tags": ["report", "status"]
+        },
+        {
+          "id": "report_tickets_by_org",
+          "name": "Tickets by organisation",
+          "description": "Counts tickets per client/organisation",
+          "use_case": "Client volume report",
+          "sql": "SELECT\n  a.AAreaDesc AS [Organisation],\n  COUNT(f.Faultid) AS [Tickets]\nFROM\n  faults f\n  INNER JOIN area a ON f.Areaint = a.AArea\nGROUP BY\n  a.AAreaDesc\nORDER BY\n  [Tickets] DESC",
+          "variables_used": [],
+          "tables_used": ["faults", "area"],
+          "tags": ["report", "organisation", "client"]
+        },
+        {
+          "id": "report_sla_breaches",
+          "name": "SLA breaches",
+          "description": "Lists tickets that breached their resolution SLA",
+          "use_case": "SLA compliance report",
+          "sql": "SELECT\n  f.Faultid AS [Ticket],\n  f.Username AS [User],\n  ts.TStatusDesc AS [Status],\n  sl.SLDesc AS [SLA],\n  p.PDesc AS [Priority],\n  f.FixByDate AS [Due By],\n  f.DateCleared AS [Cleared]\nFROM\n  faults f\n  INNER JOIN tstatus ts ON f.Status = ts.TStatus\n  LEFT JOIN slahead sl ON f.SLAID = sl.SLID\n  LEFT JOIN policy p ON f.Seriousness = p.PPolicy\nWHERE\n  f.SLAState = 'O'\nORDER BY\n  f.FixByDate DESC",
+          "variables_used": [],
+          "tables_used": ["faults", "tstatus", "slahead", "policy"],
+          "tags": ["report", "sla", "breach"]
+        },
+        {
+          "id": "report_time_by_agent",
+          "name": "Time logged by agent",
+          "description": "Total time logged by each agent over a period",
+          "use_case": "Agent utilisation report",
+          "sql": "SELECT\n  a.Who AS [Agent],\n  SUM(a.TimeTaken) AS [Total Minutes],\n  ROUND(SUM(a.TimeTaken) / 60.0, 2) AS [Total Hours]\nFROM\n  actions a\nWHERE\n  a.TimeTaken > 0\n  AND a.Whe_ >= DATEADD(day, -30, GETDATE())\nGROUP BY\n  a.Who\nORDER BY\n  [Total Minutes] DESC",
+          "variables_used": [],
+          "tables_used": ["actions"],
+          "tags": ["report", "time", "agent"]
+        },
+        {
+          "id": "report_feedback_scores",
+          "name": "Customer satisfaction scores",
+          "description": "Average feedback score per agent",
+          "use_case": "CSAT report by agent",
+          "sql": "SELECT\n  un.UName AS [Agent],\n  COUNT(fb.FBFaultid) AS [Responses],\n  AVG(CAST(fb.FBScore AS FLOAT)) AS [Avg Score]\nFROM\n  feedback fb\n  INNER JOIN faults f ON fb.FBFaultid = f.Faultid\n  INNER JOIN uname un ON f.ClearWhoInt = un.UNum\nGROUP BY\n  un.UName\nORDER BY\n  [Avg Score] ASC",
+          "variables_used": [],
+          "tables_used": ["feedback", "faults", "uname"],
+          "tags": ["report", "feedback", "csat"]
+        },
+        {
+          "id": "report_asset_inventory",
+          "name": "Asset inventory by type",
+          "description": "Lists asset counts grouped by asset type and group",
+          "use_case": "Asset inventory overview",
+          "sql": "SELECT\n  g.GDesc AS [Group],\n  xt.TDesc AS [Type],\n  COUNT(d.DDevNum) AS [Count]\nFROM\n  device d\n  INNER JOIN xtype xt ON d.DTYPE = xt.TTypeNum\n  INNER JOIN generic g ON xt.TGeneric = g.GGeneric\nGROUP BY\n  g.GDesc, xt.TDesc\nORDER BY\n  g.GDesc, xt.TDesc",
+          "variables_used": [],
+          "tables_used": ["device", "xtype", "generic"],
+          "tags": ["report", "asset", "inventory"]
+        }
+      ]
+    },
+    "haloutils_now": {
+      "label": "HaloPlus Now",
+      "description": "High-value ticket, timeline, and commercial queries for day-to-day work",
+      "icon": "sparkles",
+      "templates": [
+        {
+          "id": "haloutils_ticket_360",
+          "name": "Ticket 360 summary",
+          "description": "Full ticket context with requester, assignment, SLA, site, client, and linked asset",
+          "use_case": "Understand the current ticket quickly without jumping across multiple forms",
+          "sql": "SELECT TOP 1\n  F.Faultid AS [Ticket ID],\n  F.Symptom AS [Summary],\n  TS.TStatusDesc AS [Status],\n  P.PDesc AS [Priority],\n  RT.RTDesc AS [Ticket Type],\n  SL.SLDesc AS [SLA],\n  F.SLAState AS [SLA State],\n  F.DateOccured AS [Opened],\n  F.FixByDate AS [Due By],\n  F.DateCleared AS [Closed],\n  U.uid AS [User ID],\n  U.UUsername AS [End User],\n  U.UEmail AS [User Email],\n  U.UMobile AS [User Mobile],\n  A.AArea AS [Client ID],\n  A.AAreaDesc AS [Client],\n  S.SSitenum AS [Site ID],\n  S.SDesc AS [Site],\n  AU.UNum AS [Assigned Agent ID],\n  AU.UName AS [Assigned Agent],\n  AU.USMTP AS [Assigned Agent Email],\n  CU.UNum AS [Closed By ID],\n  CU.UName AS [Closed By],\n  D.DDevNum AS [Asset ID],\n  D.DInvNo AS [Asset Tag]\nFROM\n  Faults F\n  LEFT JOIN Users U ON F.UserID = U.uid\n  LEFT JOIN TStatus TS ON F.Status = TS.TStatus\n  LEFT JOIN Policy P ON F.Seriousness = P.PPolicy\n  LEFT JOIN RequestType RT ON F.RequestTypeNew = RT.RTID\n  LEFT JOIN SLAHead SL ON F.SLAID = SL.SLID\n  LEFT JOIN Area A ON F.Areaint = A.AArea\n  LEFT JOIN Site S ON F.SiteNumber = S.SSitenum\n  LEFT JOIN Uname AU ON F.AssignedToInt = AU.UNum\n  LEFT JOIN Uname CU ON F.ClearWhoInt = CU.UNum\n  LEFT JOIN Device D ON F.DeviceNumber = D.DDevNum AND F.DevSite = D.DevSite\nWHERE\n  F.Faultid = $ticketid",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["faults", "users", "tstatus", "policy", "requesttype", "slahead", "area", "site", "uname", "device"],
+          "tags": ["ticket", "overview", "360", "itm"]
+        },
+        {
+          "id": "haloutils_action_timeline",
+          "name": "Ticket action timeline",
+          "description": "Recent actions, emails, visibility flags, and time entries for the current ticket",
+          "use_case": "Review ticket history before replying or escalating",
+          "sql": "SELECT TOP 25\n  ActionNumber AS [Action ID],\n  Who AS [Who],\n  Whe_ AS [When],\n  ActOutcome AS [Outcome],\n  LEFT(CONVERT(nvarchar(max), Note), 400) AS [Note],\n  TimeTaken AS [Time Taken],\n  DateEmailed AS [Date Emailed],\n  ActionHide AS [Hidden]\nFROM\n  Actions\nWHERE\n  Faultid = $ticketid\nORDER BY\n  Whe_ DESC,\n  ActionNumber DESC",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["actions"],
+          "tags": ["ticket", "actions", "timeline", "history"]
+        },
+        {
+          "id": "haloutils_ticket_commercial_trace",
+          "name": "Ticket commercial trace",
+          "description": "Follow a ticket through quotes, sales orders, purchase orders, and invoices",
+          "use_case": "Understand whether fulfilment or billing has already started for a ticket",
+          "sql": "SELECT DISTINCT\n  Trace.RecordType AS [Record Type],\n  Trace.RecordID AS [Record ID],\n  Trace.Title AS [Title],\n  Trace.RecordDate AS [Date],\n  Trace.RefCode AS [Reference]\nFROM (\n  SELECT 'Quote' AS RecordType, CAST(QH.qhid AS nvarchar(50)) AS RecordID, QH.QHtitle AS Title, QH.QHDate AS RecordDate, QH.QHPORef AS RefCode\n  FROM QUOTATIONHEADER QH\n  WHERE QH.QHfaultID = $ticketid\n  UNION ALL\n  SELECT 'Sales Order' AS RecordType, CAST(OH.OHid AS nvarchar(50)) AS RecordID, OH.OHtitle AS Title, OH.OHorderdate AS RecordDate, OH.OHponumber AS RefCode\n  FROM ORDERHEAD OH\n  WHERE OH.OHfaultid = $ticketid OR OH.OHprojectfaultid = $ticketid\n  UNION ALL\n  SELECT 'Purchase Order' AS RecordType, CAST(SOH.SHid AS nvarchar(50)) AS RecordID, SOH.SHtitle AS Title, SOH.SHPODate AS RecordDate, SOH.SHPORef AS RefCode\n  FROM SUPPLIERORDERHEADER SOH\n  WHERE SOH.SHfaultID = $ticketid\n  UNION ALL\n  SELECT 'Invoice' AS RecordType, CAST(IH.ihid AS nvarchar(50)) AS RecordID, IH.IHname AS Title, IH.ihdatepaid AS RecordDate, IH.IH3rdPartyInvoiceNumber AS RefCode\n  FROM InvoiceHeader IH\n  INNER JOIN InvoiceDetail ID ON ID.IdIHid = IH.ihid\n  WHERE ID.IDFaultid = $ticketid\n) Trace\nORDER BY\n  Trace.RecordDate DESC,\n  Trace.RecordType",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["quotationheader", "orderhead", "supplierorderheader", "invoiceheader", "invoicedetail"],
+          "tags": ["ticket", "quote", "order", "invoice", "purchasing"]
+        },
+        {
+          "id": "haloutils_open_tickets_same_user",
+          "name": "Open tickets for the same user",
+          "description": "Find the current user's other open tickets for better context",
+          "use_case": "Spot patterns, duplicate issues, or related outstanding work before updating the ticket",
+          "sql": "SELECT\n  F.Faultid AS [Ticket ID],\n  TS.TStatusDesc AS [Status],\n  F.Symptom AS [Summary],\n  AU.UName AS [Assigned Agent],\n  F.DateOccured AS [Opened],\n  F.FixByDate AS [Due By]\nFROM\n  Faults F\n  LEFT JOIN TStatus TS ON F.Status = TS.TStatus\n  LEFT JOIN Uname AU ON F.AssignedToInt = AU.UNum\nWHERE\n  F.UserID = (SELECT TOP 1 UserID FROM Faults WHERE Faultid = $ticketid)\n  AND F.DateCleared IS NULL\n  AND F.Faultid <> $ticketid\nORDER BY\n  F.DateOccured DESC",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["faults", "tstatus", "uname"],
+          "tags": ["ticket", "user", "duplicates", "context"]
+        },
+        {
+          "id": "haloutils_sla_explainer",
+          "name": "SLA explainer",
+          "description": "Resolve the current ticket's SLA, priority, and target timings into a readable view",
+          "use_case": "Explain why a ticket has a given due date or breach state",
+          "sql": "SELECT TOP 1\n  F.Faultid AS [Ticket ID],\n  P.PDesc AS [Priority],\n  P.PResponseTime AS [Response Target],\n  P.PResponseUnits AS [Response Units],\n  P.PTime AS [Resolution Target],\n  P.PUnits AS [Resolution Units],\n  SL.SLDesc AS [SLA],\n  F.SLAState AS [SLA State],\n  F.DateOccured AS [Opened],\n  F.FixByDate AS [Due By],\n  F.DateCleared AS [Closed]\nFROM\n  Faults F\n  LEFT JOIN Policy P ON F.Seriousness = P.PPolicy\n  LEFT JOIN SLAHead SL ON F.SLAID = SL.SLID\nWHERE\n  F.Faultid = $ticketid",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["faults", "policy", "slahead"],
+          "tags": ["ticket", "sla", "priority", "targets"]
+        }
+      ]
+    },
+    "data_queries": {
+      "label": "Data queries",
+      "description": "SQL for finding specific records and data",
+      "icon": "database",
+      "templates": [
+        {
+          "id": "data_ticket_full",
+          "name": "Full ticket details",
+          "description": "Gets comprehensive ticket information with all joined data",
+          "use_case": "Detailed ticket view with all related names",
+          "sql": "SELECT\n  f.Faultid AS [Ticket],\n  f.Username AS [User],\n  u.UEmail AS [Email],\n  ts.TStatusDesc AS [Status],\n  p.PDesc AS [Priority],\n  rt.RTDesc AS [Type],\n  un.UName AS [Assigned To],\n  a.AAreaDesc AS [Organisation],\n  s.SDesc AS [Site],\n  sl.SLDesc AS [SLA],\n  f.DateOccured AS [Opened],\n  f.FixByDate AS [Due By],\n  f.DateCleared AS [Closed]\nFROM\n  faults f\n  LEFT JOIN users u ON f.UserID = u.uid\n  LEFT JOIN tstatus ts ON f.Status = ts.TStatus\n  LEFT JOIN policy p ON f.Seriousness = p.PPolicy\n  LEFT JOIN requesttype rt ON f.RequestTypeNew = rt.RTID\n  LEFT JOIN uname un ON f.AssignedToInt = un.UNum\n  LEFT JOIN area a ON f.Areaint = a.AArea\n  LEFT JOIN site s ON f.SiteNumber = s.SSitenum\n  LEFT JOIN slahead sl ON f.SLAID = sl.SLID\nWHERE\n  f.Faultid = $ticketid",
+          "variables_used": ["$ticketid"],
+          "tables_used": ["faults", "users", "tstatus", "policy", "requesttype", "uname", "area", "site", "slahead"],
+          "tags": ["data", "ticket", "detail"]
+        },
+        {
+          "id": "data_user_tickets",
+          "name": "All tickets for a user",
+          "description": "Lists all tickets belonging to the current ticket's user",
+          "use_case": "View user's ticket history",
+          "sql": "SELECT\n  f.Faultid AS [Ticket],\n  ts.TStatusDesc AS [Status],\n  f.DateOccured AS [Opened],\n  f.DateCleared AS [Closed],\n  un.UName AS [Assigned To]\nFROM\n  faults f\n  LEFT JOIN tstatus ts ON f.Status = ts.TStatus\n  LEFT JOIN uname un ON f.AssignedToInt = un.UNum\nWHERE\n  f.UserID = $userid\nORDER BY\n  f.DateOccured DESC",
+          "variables_used": ["$userid"],
+          "tables_used": ["faults", "tstatus", "uname"],
+          "tags": ["data", "user", "history"]
+        }
+      ]
+    }
+  }
+}

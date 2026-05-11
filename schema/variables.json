@@ -1,0 +1,54 @@
+{
+  "variables": {
+    "$ticketid": {
+      "label": "Current ticket ID",
+      "description": "Resolves to the Faultid of the ticket being viewed. Use in lookups and ticket-scoped reports.",
+      "maps_to": "faults.Faultid",
+      "contexts": ["lookup", "report", "business_rule"]
+    },
+    "$agentid": {
+      "label": "Current agent ID",
+      "description": "Resolves to the UNum of the logged-in agent.",
+      "maps_to": "uname.UNum",
+      "contexts": ["lookup", "report"]
+    },
+    "$userid": {
+      "label": "Current user ID",
+      "description": "Resolves to the uid of the end user on the ticket.",
+      "maps_to": "users.uid",
+      "contexts": ["lookup", "report"]
+    },
+    "$siteid": {
+      "label": "Current site ID",
+      "description": "Resolves to the SSitenum of the site context.",
+      "maps_to": "site.SSitenum",
+      "contexts": ["lookup", "report"]
+    },
+    "$clientid": {
+      "label": "Current client/organisation ID",
+      "description": "Resolves to the AArea of the client context.",
+      "maps_to": "area.AArea",
+      "contexts": ["lookup", "report"]
+    },
+    "$invoiceid": {
+      "label": "Current invoice ID",
+      "description": "Resolves to the invoice being viewed.",
+      "maps_to": null,
+      "contexts": ["report"]
+    }
+  },
+  "mssql_rules": {
+    "dialect": "Microsoft SQL Server (T-SQL)",
+    "notes": [
+      "Always use SELECT — never INSERT, UPDATE, DELETE, or DROP",
+      "Use TOP N instead of LIMIT N",
+      "Use CONVERT() or CAST() for type conversions",
+      "Use ISNULL() instead of IFNULL() or COALESCE() when checking single values",
+      "ntext columns (Note, EmailBody, Clearance, etc.) require CONVERT(nvarchar(max), column) before comparison or output",
+      "Date functions: GETDATE(), DATEADD(), DATEDIFF(), FORMAT()",
+      "String functions: LEFT(), RIGHT(), CHARINDEX(), LEN(), REPLACE()",
+      "Use single quotes for string literals",
+      "Column aliases use [Square Brackets] or 'single quotes' with AS"
+    ]
+  }
+}
