@@ -80,6 +80,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'HU_OPEN_REVIEW') {
+    chrome.tabs.create({ url: 'https://chromewebstore.google.com/detail/haloplus/ondioamcpkphlebmeocbhjmpdodpmklp/reviews' }, () => {
+      void chrome.runtime.lastError;
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+
   if (message.type === 'RUN_HALO_REPORT') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tab = tabs[0];

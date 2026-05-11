@@ -272,26 +272,49 @@
           <span class="settings-section-kicker">Ticket 360</span>
           <h3 class="settings-section-title">Display preferences</h3>
           <div class="pref-list">
-            <label class="pref-row" for="prefAuto360">
+            <label class="pref-row" for="prefTicket360Enabled">
               <div class="pref-row-text">
-                <span class="pref-label">Auto-open on tickets</span>
-                <span class="pref-sub">Automatically show Ticket 360 when navigating to a ticket</span>
+                <span class="pref-label">Enable Ticket 360</span>
+                <span class="pref-sub">Turn off to hide the Ticket 360 button and stop auto-opening on tickets</span>
               </div>
-              <input class="pref-toggle" type="checkbox" id="prefAuto360">
+              <input class="pref-toggle" type="checkbox" id="prefTicket360Enabled">
             </label>
-            <label class="pref-row" for="prefDrawer360Push">
+            <div id="ticket360SubPrefs" class="pref-sublist">
+              <label class="pref-row" for="prefAuto360">
+                <div class="pref-row-text">
+                  <span class="pref-label">Auto-open on tickets</span>
+                  <span class="pref-sub">Automatically show Ticket 360 when navigating to a ticket</span>
+                </div>
+                <input class="pref-toggle" type="checkbox" id="prefAuto360">
+              </label>
+              <label class="pref-row" for="prefDrawer360Push">
+                <div class="pref-row-text">
+                  <span class="pref-label">Slide in panel</span>
+                  <span class="pref-sub">Slide the panel in from the right edge and shrink the page content to make room</span>
+                </div>
+                <input class="pref-toggle" type="checkbox" id="prefDrawer360Push">
+              </label>
+              <label class="pref-row" for="prefHideHaloSidebar">
+                <div class="pref-row-text">
+                  <span class="pref-label">Hide Halo sidebars</span>
+                  <span class="pref-sub">Collapse the built-in ticket sidebars when opening Ticket 360</span>
+                </div>
+                <input class="pref-toggle" type="checkbox" id="prefHideHaloSidebar">
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-card settings-card-tight">
+          <span class="settings-section-kicker">In-page tools</span>
+          <h3 class="settings-section-title">Form field helpers</h3>
+          <div class="pref-list">
+            <label class="pref-row" for="prefDoubleClickTechFields">
               <div class="pref-row-text">
-                <span class="pref-label">Slide in panel</span>
-                <span class="pref-sub">Slide the panel in from the right edge and shrink the page content to make room</span>
+                <span class="pref-label">Double-click to show field API names</span>
+                <span class="pref-sub">Double-click anywhere outside an input to toggle the field/API name overlay</span>
               </div>
-              <input class="pref-toggle" type="checkbox" id="prefDrawer360Push">
-            </label>
-            <label class="pref-row" for="prefHideHaloSidebar">
-              <div class="pref-row-text">
-                <span class="pref-label">Hide Halo sidebars</span>
-                <span class="pref-sub">Collapse the built-in ticket sidebars when opening Ticket 360</span>
-              </div>
-              <input class="pref-toggle" type="checkbox" id="prefHideHaloSidebar">
+              <input class="pref-toggle" type="checkbox" id="prefDoubleClickTechFields">
             </label>
           </div>
         </div>
@@ -355,6 +378,7 @@
             <a class="settings-link" href="https://www.linkedin.com/in/alex-wennekes/" target="_blank" rel="noreferrer">LinkedIn</a>
             <a class="settings-link" href="https://www.gethaloplus.com" target="_blank" rel="noreferrer">Website</a>
             <a class="settings-link" href="https://www.gethaloplus.com/releases.html" target="_blank" rel="noreferrer">Release notes</a>
+            <a class="settings-link" href="https://github.com/alexwennekes212/haloplus" target="_blank" rel="noreferrer">GitHub</a>
           </div>
         </div>
       </div>

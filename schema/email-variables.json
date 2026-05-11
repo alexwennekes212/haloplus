@@ -1,0 +1,4972 @@
+{
+  "variables": [
+    {
+      "name": "ACTIONARRIVALDATE",
+      "category": "Action",
+      "description": "The date and time an action arrived at",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONBUDGETTYPE",
+      "category": "Action",
+      "description": "Budget Type",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONCOMPLETIONDATE",
+      "category": "Action",
+      "description": "The date and time an action was completed at",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONDATE",
+      "category": "Action",
+      "description": "The date and time an action occurred at",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONDURATION",
+      "category": "Action",
+      "description": "The total taken on an action",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONDURATIONTOTAL",
+      "category": "Action",
+      "description": "The total of the action time taken and adjusted time",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONENDTIME",
+      "category": "Action",
+      "description": "The date and time an action was completed at",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONEXTRAINFO",
+      "category": "Action",
+      "description": "Extra information about the Action",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONNOTE",
+      "category": "Action",
+      "description": "Action Note",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONOUTCOME",
+      "category": "Action",
+      "description": "Action Outcome",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONRATE",
+      "category": "Action",
+      "description": "Charge rate for the action",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONSTARTTIME",
+      "category": "Action",
+      "description": "The date and time an action occurred at not including seconds",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONTECH",
+      "category": "Action",
+      "description": "The ID of the Agent that did the action",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONTIMETAKEN",
+      "category": "Action",
+      "description": "Time taken on Action",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONTRAVELENDDATE",
+      "category": "Action",
+      "description": "The end date and time of a travel action",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONTRAVELENDTIME",
+      "category": "Action",
+      "description": "The end date and time of a travel action",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONTRAVELSTARTDATE",
+      "category": "Action",
+      "description": "The start date and time of a travel action",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONTRAVELSTARTTIME",
+      "category": "Action",
+      "description": "The start date and time of a travel action",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONTRAVELTIME",
+      "category": "Action",
+      "description": "Travel Hours",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONWHEN{}",
+      "category": "Action",
+      "description": "When the Action was done. Remove { and } or leave empty to use your system's date format. Include { and } to manually set the date format: e.g. {MM/dd/yyyy} for 05/29/2015",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONWHO",
+      "category": "Action",
+      "description": "Who did the Action",
+      "isButton": false
+    },
+    {
+      "name": "AGENTEMAILADDRESS",
+      "category": "Action",
+      "description": "The email address of the Agent that performed the action",
+      "isButton": false
+    },
+    {
+      "name": "AGENTFIRSTNAME",
+      "category": "Action",
+      "description": "The first name of the Agent that performed the action",
+      "isButton": false
+    },
+    {
+      "name": "AGENTJOBTITLE",
+      "category": "Action",
+      "description": "The job title of the Agent that performed the action",
+      "isButton": false
+    },
+    {
+      "name": "AGENTLASTNAME",
+      "category": "Action",
+      "description": "The last name of the Agent that performed the action",
+      "isButton": false
+    },
+    {
+      "name": "AGENTPHONENUMBER",
+      "category": "Action",
+      "description": "The phone number of the Agent that performed the action",
+      "isButton": false
+    },
+    {
+      "name": "GREETING",
+      "category": "Action",
+      "description": "A time-based greeting i.e. Good Morning",
+      "isButton": false
+    },
+    {
+      "name": "LASTNONSYSTEMACTION",
+      "category": "Action",
+      "description": "Last Action With a Note Not Performed By The System",
+      "isButton": false
+    },
+    {
+      "name": "LASTNONSYSTEMACTIONDATE",
+      "category": "Action",
+      "description": "Date/Time of the Last Action with a Note not performed by the System",
+      "isButton": false
+    },
+    {
+      "name": "LASTNONSYSTEMACTIONWHO",
+      "category": "Action",
+      "description": "Name of User/Agent of the Last Action with a Note not performed by the System",
+      "isButton": false
+    },
+    {
+      "name": "LOGGEDINAGENTID",
+      "category": "Action",
+      "description": "The ID of the current logged in Agent",
+      "isButton": false
+    },
+    {
+      "name": "LOGGEDINAGENTNAME",
+      "category": "Action",
+      "description": "The name of the current logged in Agent",
+      "isButton": false
+    },
+    {
+      "name": "REPLYINGTONOTE",
+      "category": "Action",
+      "description": "The note of the Action that and Agent is replying to when using Reply Directly to a User functionality",
+      "isButton": false
+    },
+    {
+      "name": "RICHACTIONNOTE",
+      "category": "Action",
+      "description": "Action Note field in rich/html text format",
+      "isButton": false
+    },
+    {
+      "name": "ROUNDEDACTIONTIMETAKEN",
+      "category": "Action",
+      "description": "Total Time (Time Taken + Rounding) for the Action",
+      "isButton": false
+    },
+    {
+      "name": "SLAHOLDACTIONDATE",
+      "category": "Action",
+      "description": "Date/Time of last public action. Used with SLA hold reminders",
+      "isButton": false
+    },
+    {
+      "name": "SLAHOLDACTIONWHO",
+      "category": "Action",
+      "description": "The name of the Agent that added the last public action. Used with SLA hold reminders",
+      "isButton": false
+    },
+    {
+      "name": "SLAHOLDRICHACTIONNOTE",
+      "category": "Action",
+      "description": "Last public Action in rich text format. Used with SLA hold reminders.",
+      "isButton": false
+    },
+    {
+      "name": "SLAHOLDRICHACTIONNOTEPRIVATE",
+      "category": "Action",
+      "description": "Last private/public action in rich text format. Used with SLA hold reminders.",
+      "isButton": false
+    },
+    {
+      "name": "ASSIGNEDTO",
+      "category": "Agent",
+      "description": "Display Name of Agent Assigned to the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "LOGGEDINAGENTSIGNATURE",
+      "category": "Agent",
+      "description": "Signature of the current logged in Agent",
+      "isButton": false
+    },
+    {
+      "name": "SIGNATURE",
+      "category": "Agent",
+      "description": "Agent Signature",
+      "isButton": false
+    },
+    {
+      "name": "AGENTEMAIL",
+      "category": "All Buttons",
+      "description": "The email address of the logged in Agent",
+      "isButton": true
+    },
+    {
+      "name": "CF",
+      "category": "All Buttons",
+      "description": "All text custom Fields",
+      "isButton": true
+    },
+    {
+      "name": "LINKTOWEBAPP",
+      "category": "All Buttons",
+      "description": "The URL of the Agent application",
+      "isButton": true
+    },
+    {
+      "name": "PORTALURL",
+      "category": "All Buttons",
+      "description": "Web portal URL",
+      "isButton": true
+    },
+    {
+      "name": "APENDDATE",
+      "category": "Appointment",
+      "description": "End Date/Time of Appointment",
+      "isButton": false
+    },
+    {
+      "name": "APID",
+      "category": "Appointment",
+      "description": "Appointment ID",
+      "isButton": false
+    },
+    {
+      "name": "APLOCATION",
+      "category": "Appointment",
+      "description": "Appointment Location",
+      "isButton": false
+    },
+    {
+      "name": "APNOTE",
+      "category": "Appointment",
+      "description": "Appointment Note",
+      "isButton": false
+    },
+    {
+      "name": "APPOINTMENTMEETINGLINK",
+      "category": "Appointment",
+      "description": "The meeting link associated with the Appointment (For example a Microsoft Teams meeting link)",
+      "isButton": false
+    },
+    {
+      "name": "APPOINTMENTTECHNICIAN",
+      "category": "Appointment",
+      "description": "Agent assigned to Appointment",
+      "isButton": false
+    },
+    {
+      "name": "APSTARTDATE",
+      "category": "Appointment",
+      "description": "Start Date/Time of Appointment or ''Start Date between Approximate Times'' if Approximation available.",
+      "isButton": false
+    },
+    {
+      "name": "APSUBJECT",
+      "category": "Appointment",
+      "description": "Appointment Subject",
+      "isButton": false
+    },
+    {
+      "name": "APTYPE",
+      "category": "Appointment",
+      "description": "The appointment type of an appointment",
+      "isButton": false
+    },
+    {
+      "name": "KEYMESSAGE",
+      "category": "Appointment",
+      "description": "Agent Appointment/Key Message",
+      "isButton": false
+    },
+    {
+      "name": "ACCEPTLINK",
+      "category": "Approval Processes",
+      "description": "Approval Accept Link",
+      "isButton": false
+    },
+    {
+      "name": "APPROVALITEMS",
+      "category": "Approval Processes",
+      "description": "A link to accept and reject items in an approval process",
+      "isButton": false
+    },
+    {
+      "name": "APPROVALOUTCOME",
+      "category": "Approval Processes",
+      "description": "Approval Outcome",
+      "isButton": false
+    },
+    {
+      "name": "APPROVALRESULTSTABLE",
+      "category": "Approval Processes",
+      "description": "A table containing the outcome of the approval against each approver",
+      "isButton": false
+    },
+    {
+      "name": "APPROVEDBY",
+      "category": "Approval Processes",
+      "description": "Approved by",
+      "isButton": false
+    },
+    {
+      "name": "APPROVERS",
+      "category": "Approval Processes",
+      "description": "A list of all Agents that the Approval Email has been sent to",
+      "isButton": false
+    },
+    {
+      "name": "REJECTEDBY",
+      "category": "Approval Processes",
+      "description": "Rejected by",
+      "isButton": false
+    },
+    {
+      "name": "REJECTEDNOTES",
+      "category": "Approval Processes",
+      "description": "Rejected note",
+      "isButton": false
+    },
+    {
+      "name": "REJECTLINK",
+      "category": "Approval Processes",
+      "description": "Approval Reject Link",
+      "isButton": false
+    },
+    {
+      "name": "AF",
+      "category": "Asset Buttons",
+      "description": "All text Asset Fields. $AF, followed by Field name e.g. $AFIP Address",
+      "isButton": true
+    },
+    {
+      "name": "ASSETTYPE_NAME",
+      "category": "Asset Buttons",
+      "description": "The name of the Asset Type",
+      "isButton": true
+    },
+    {
+      "name": "ASSET_STATUS",
+      "category": "Asset Buttons",
+      "description": "Asset Status",
+      "isButton": true
+    },
+    {
+      "name": "ATERAID",
+      "category": "Asset Buttons",
+      "description": "The Atera ID of the Asset",
+      "isButton": true
+    },
+    {
+      "name": "DATTO_ID",
+      "category": "Asset Buttons",
+      "description": "The Datto ID of the Asset",
+      "isButton": true
+    },
+    {
+      "name": "GUID",
+      "category": "Asset Buttons",
+      "description": "The GUID of the Asset in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "INVENTORY_NUMBER",
+      "category": "Asset Buttons",
+      "description": "The Asset Tag of the Asset in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "NINJARMM_ID",
+      "category": "Asset Buttons",
+      "description": "The Ninja RMM ID of the Asset",
+      "isButton": true
+    },
+    {
+      "name": "PRTG_ID",
+      "category": "Asset Buttons",
+      "description": "The PRTG ID of the Asset",
+      "isButton": true
+    },
+    {
+      "name": "THIRD_PARTY_ID_STRING",
+      "category": "Asset Buttons",
+      "description": "The Snow ID of the Asset",
+      "isButton": true
+    },
+    {
+      "name": "ALLASSETFIELDS",
+      "category": "Assets",
+      "description": "Listing of all Asset Field Values",
+      "isButton": false
+    },
+    {
+      "name": "ALLASSETFIELDSCARD",
+      "category": "Assets",
+      "description": "A styled table containing all field values for a Asset",
+      "isButton": false
+    },
+    {
+      "name": "ALLASSETFIELDSQA",
+      "category": "Assets",
+      "description": "Listing of all Asset Field Values in a question-answer format",
+      "isButton": false
+    },
+    {
+      "name": "ASSET_ID",
+      "category": "Assets",
+      "description": "The unique ID of the Asset in HaloITSM",
+      "isButton": false
+    },
+    {
+      "name": "ASSET_LABOURWARRANTYEND",
+      "category": "Assets",
+      "description": "Labour Warranty End",
+      "isButton": false
+    },
+    {
+      "name": "ASSET_LABOURWARRANTYSTART",
+      "category": "Assets",
+      "description": "Labour Warranty Start",
+      "isButton": false
+    },
+    {
+      "name": "ASSET_NUMBER",
+      "category": "Assets",
+      "description": "Asset Tag",
+      "isButton": false
+    },
+    {
+      "name": "ASSET_PARTSWARRANTYEND",
+      "category": "Assets",
+      "description": "Parts Warranty End",
+      "isButton": false
+    },
+    {
+      "name": "ASSET_PARTSWARRANTYSTART",
+      "category": "Assets",
+      "description": "Parts Warranty Start",
+      "isButton": false
+    },
+    {
+      "name": "INVENTORYNUMBER",
+      "category": "Assets",
+      "description": "Asset Tag",
+      "isButton": false
+    },
+    {
+      "name": "BACKOUTPLAN",
+      "category": "Change Management",
+      "description": "Backout Plan",
+      "isButton": false
+    },
+    {
+      "name": "CHANGESTATUS",
+      "category": "Change Management",
+      "description": "Change - Change Status",
+      "isButton": false
+    },
+    {
+      "name": "COMMUNICATIONPLAN",
+      "category": "Change Management",
+      "description": "Communication Plan",
+      "isButton": false
+    },
+    {
+      "name": "IMPACTDESCRIPTION",
+      "category": "Change Management",
+      "description": "Impact",
+      "isButton": false
+    },
+    {
+      "name": "IMPACTLEVEL",
+      "category": "Change Management",
+      "description": "Impact Level",
+      "isButton": false
+    },
+    {
+      "name": "JUSTIFICATION",
+      "category": "Change Management",
+      "description": "Justification",
+      "isButton": false
+    },
+    {
+      "name": "TESTPLAN",
+      "category": "Change Management",
+      "description": "Test Plan",
+      "isButton": false
+    },
+    {
+      "name": "CONSIGNED_ASSETS",
+      "category": "Consignments",
+      "description": "Consigned Assets",
+      "isButton": false
+    },
+    {
+      "name": "CONSIGNMENTADDRESS",
+      "category": "Consignments",
+      "description": "Consignment Address",
+      "isButton": false
+    },
+    {
+      "name": "CONSIGNMENTDATE",
+      "category": "Consignments",
+      "description": "Consignment Date",
+      "isButton": false
+    },
+    {
+      "name": "CONSIGNMENTID",
+      "category": "Consignments",
+      "description": "Consignment ID",
+      "isButton": false
+    },
+    {
+      "name": "CONSIGNMENTNAME",
+      "category": "Consignments",
+      "description": "Consignment Name",
+      "isButton": false
+    },
+    {
+      "name": "CONSIGNMENTNOTE",
+      "category": "Consignments",
+      "description": "Consignment Note",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTSID",
+      "category": "Contract",
+      "description": "Organisation Accounts Id",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTACCOUNTSID",
+      "category": "Contract",
+      "description": "Accounts Code",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTAGENT",
+      "category": "Contract",
+      "description": "Agent who created the Contract",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTAPPROVAL",
+      "category": "Contract",
+      "description": "Used in an email to generate a secure link to sign a Contract",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTAPPROVERDATE",
+      "category": "Contract",
+      "description": "Date/Time that the Contract was signed/approved",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTAPPROVEREMAIL",
+      "category": "Contract",
+      "description": "Used in a Contract PDF to display the Email Address entered during approval",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTAPPROVERNAME",
+      "category": "Contract",
+      "description": "Used in a Contract PDF to display the Name entered during approval",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTASSETS",
+      "category": "Contract",
+      "description": "Contract Assets",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTBILLINGDESCRIPTION",
+      "category": "Contract",
+      "description": "Contract Type",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTCONTACT",
+      "category": "Contract",
+      "description": "Contract Contract (User level setting)",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTENDDATE",
+      "category": "Contract",
+      "description": "End date",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTID",
+      "category": "Contract",
+      "description": "Contract Id",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTNEXTCALLDATE",
+      "category": "Contract",
+      "description": "Next Call Date",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTNOTE",
+      "category": "Contract",
+      "description": "Notes on the Contract",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTPAYMENTMETHOD",
+      "category": "Contract",
+      "description": "Payment Method",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTPERCENTAGEINCREASE",
+      "category": "Contract",
+      "description": "Annual % increase per Asset",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTPERIODASSETCHARGEAMOUNT",
+      "category": "Contract",
+      "description": "Charge per Period (Calculated by Assets)",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTPERIODCHARGEAMOUNT",
+      "category": "Contract",
+      "description": "Charge per Period",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTREF",
+      "category": "Contract",
+      "description": "Contract Reference",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTSIGNATURE",
+      "category": "Contract",
+      "description": "Used in a Contract PDF to display the Signature entered during approval",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTSLA",
+      "category": "Contract",
+      "description": "Service Level Agreement",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTSTARTDATE",
+      "category": "Contract",
+      "description": "Start date",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTSTATUS",
+      "category": "Contract",
+      "description": "Status",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTSUBTYPE",
+      "category": "Contract",
+      "description": "Agreement Subtype",
+      "isButton": false
+    },
+    {
+      "name": "KEYFIELD1",
+      "category": "Contract Assets",
+      "description": "Key Field",
+      "isButton": false
+    },
+    {
+      "name": "KEYFIELD2",
+      "category": "Contract Assets",
+      "description": "Key Field 2",
+      "isButton": false
+    },
+    {
+      "name": "KEYFIELD3",
+      "category": "Contract Assets",
+      "description": "Key Field 3",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTSDESC",
+      "category": "Contract Buttons",
+      "description": "The Invoice line output of the Contract in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "REFEXTRA",
+      "category": "Contract Buttons",
+      "description": "The Extra Reference of the Contract in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "REF",
+      "category": "Contract Buttons",
+      "description": "The Reference of the Contract in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "CLIENTWHO",
+      "category": "CRM Notes",
+      "description": "Who created the CRM note",
+      "isButton": false
+    },
+    {
+      "name": "CLIENT_NAME",
+      "category": "CRM Notes",
+      "description": "Organisation Name",
+      "isButton": false
+    },
+    {
+      "name": "CRMDETAILS",
+      "category": "CRM Notes",
+      "description": "Extra details on Note",
+      "isButton": false
+    },
+    {
+      "name": "CRMNOTE",
+      "category": "CRM Notes",
+      "description": "CRM Note",
+      "isButton": false
+    },
+    {
+      "name": "CRMSUBJECT",
+      "category": "CRM Notes",
+      "description": "Subject on Note",
+      "isButton": false
+    },
+    {
+      "name": "CRMTIMESTAMP",
+      "category": "CRM Notes",
+      "description": "Note creation date",
+      "isButton": false
+    },
+    {
+      "name": "ASSETTAG",
+      "category": "Invoice Lines",
+      "description": "Asset Tag",
+      "isButton": false
+    },
+    {
+      "name": "ASSETVALUE",
+      "category": "Invoice Lines",
+      "description": "Asset Value",
+      "isButton": false
+    },
+    {
+      "name": "AZUREENTITLEMENTID",
+      "category": "Invoice Lines",
+      "description": "The ID of the linked Subscription/Entitlement",
+      "isButton": false
+    },
+    {
+      "name": "AZUREENTITLEMENTNAME",
+      "category": "Invoice Lines",
+      "description": "The Name of the linked Subscription/Entitlement",
+      "isButton": false
+    },
+    {
+      "name": "AZURENAME",
+      "category": "Invoice Lines",
+      "description": "The name of the linked Azure Consumption entity (either Subscription ID, Resource Group or Reserved Instance)",
+      "isButton": false
+    },
+    {
+      "name": "AZURERESERVEDINSTANCE",
+      "category": "Invoice Lines",
+      "description": "The name of the linked Azure Reserved Instance",
+      "isButton": false
+    },
+    {
+      "name": "AZURERESOURCEGROUP",
+      "category": "Invoice Lines",
+      "description": "The name of the linked Azure Resource Group",
+      "isButton": false
+    },
+    {
+      "name": "AZURESUBSCRIPTIONID",
+      "category": "Invoice Lines",
+      "description": "The ID of the linked Subscription/Entitlement",
+      "isButton": false
+    },
+    {
+      "name": "CHARGERATEDESC",
+      "category": "Invoice Lines",
+      "description": "Invoice ID",
+      "isButton": false
+    },
+    {
+      "name": "DESCRIPTION",
+      "category": "Invoice Lines",
+      "description": "The long description of the item",
+      "isButton": false
+    },
+    {
+      "name": "ENDDATE",
+      "category": "Invoice Lines",
+      "description": "End date",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEFORCUSTOMER",
+      "category": "Invoice Lines",
+      "description": "Organisation that the Invoice was created on behalf of",
+      "isButton": false
+    },
+    {
+      "name": "NEXTPERIODENDDATE",
+      "category": "Invoice Lines",
+      "description": "Next Period End Date",
+      "isButton": false
+    },
+    {
+      "name": "NEXTPERIODSTARTDATE",
+      "category": "Invoice Lines",
+      "description": "Next Period Start Date",
+      "isButton": false
+    },
+    {
+      "name": "NOMINALCODE",
+      "category": "Invoice Lines",
+      "description": "The items nominal code",
+      "isButton": false
+    },
+    {
+      "name": "PERIODENDDATE",
+      "category": "Invoice Lines",
+      "description": "Period End Date",
+      "isButton": false
+    },
+    {
+      "name": "PERIODSTARTDATE",
+      "category": "Invoice Lines",
+      "description": "Period Start Date",
+      "isButton": false
+    },
+    {
+      "name": "PREVIOUSPERIODENDDATE",
+      "category": "Invoice Lines",
+      "description": "Previous Period End Date",
+      "isButton": false
+    },
+    {
+      "name": "PREVIOUSPERIODSTARTDATE",
+      "category": "Invoice Lines",
+      "description": "Previous Period Start Date",
+      "isButton": false
+    },
+    {
+      "name": "SEQUENCEID",
+      "category": "Invoice Lines",
+      "description": "The sequence number used for sorting",
+      "isButton": false
+    },
+    {
+      "name": "TAXCATEGORYCODE",
+      "category": "Invoice Lines",
+      "description": "The category code of the tax rate on the Invoice line",
+      "isButton": false
+    },
+    {
+      "name": "TAXRATE",
+      "category": "Invoice Lines",
+      "description": "Tax Rate",
+      "isButton": false
+    },
+    {
+      "name": "CREDITTOTAL",
+      "category": "Invoices",
+      "description": "Total amount credited against the Invoice",
+      "isButton": false
+    },
+    {
+      "name": "CURRENCY_CODE",
+      "category": "Invoices",
+      "description": "Prints the currency code",
+      "isButton": false
+    },
+    {
+      "name": "CUSTOMERPONUMBER",
+      "category": "Invoices",
+      "description": "Customer PO Number",
+      "isButton": false
+    },
+    {
+      "name": "DUEDATE",
+      "category": "Invoices",
+      "description": "Invoice due date",
+      "isButton": false
+    },
+    {
+      "name": "GENERICINVOICEURL",
+      "category": "Invoices",
+      "description": "URL for customers to view and pay the Invoiceif populated by a custom integration",
+      "isButton": false
+    },
+    {
+      "name": "INVDATESENT{}",
+      "category": "Invoices",
+      "description": "The date the Invoice was sent. Remove { and } or leave empty to use your system's date format. Include { and } to manually set the date format: e.g. {MM/dd/yyyy} for 05/29/2015",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEDATE{}",
+      "category": "Invoices",
+      "description": "The date the Invoice was created. Remove { and } or leave empty to use your system's date format. Include { and } to manually set the date format: e.g. {MM/dd/yyyy} for 05/29/2015",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEDISCOUNTPERCENT",
+      "category": "Invoices",
+      "description": "Total discounted percentage of the invoice",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEDISCOUNTTOTAL",
+      "category": "Invoices",
+      "description": "Total discounted amount of the invoice, excluding tax",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEDUETOTAL",
+      "category": "Invoices",
+      "description": "Total due on the order",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEID",
+      "category": "Invoices",
+      "description": "The Invoices ID",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEINTERNALNOTE",
+      "category": "Invoices",
+      "description": "The internal invoice notes",
+      "isButton": false
+    },
+    {
+      "name": "INVOICELINES",
+      "category": "Invoices",
+      "description": "Prints lines of the Invoice. For PDF templates only.",
+      "isButton": false
+    },
+    {
+      "name": "INVOICENOTE",
+      "category": "Invoices",
+      "description": "Notes on the order",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEPAIDANDCREDITTOTAL",
+      "category": "Invoices",
+      "description": "Total paid plus any credits applied on the order",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEPAIDSTATUS",
+      "category": "Invoices",
+      "description": "Payment Status",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEPAIDSTATUSID",
+      "category": "Invoices",
+      "description": "Payment Status ID",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEPAIDTOTAL",
+      "category": "Invoices",
+      "description": "Total paid on the order",
+      "isButton": false
+    },
+    {
+      "name": "INVOICESITE",
+      "category": "Invoices",
+      "description": "Name of the Site that the invoice is assigned to",
+      "isButton": false
+    },
+    {
+      "name": "INVOICESUBTOTAL",
+      "category": "Invoices",
+      "description": "Total price of the order, not including tax",
+      "isButton": false
+    },
+    {
+      "name": "INVOICETAXTOTAL",
+      "category": "Invoices",
+      "description": "Total tax on the order",
+      "isButton": false
+    },
+    {
+      "name": "INVOICETOTAL",
+      "category": "Invoices",
+      "description": "Total price of the order, including tax",
+      "isButton": false
+    },
+    {
+      "name": "INVOICETOTALNOCURRENCY",
+      "category": "Invoices",
+      "description": "Total price of the order, including tax (without currency and decimal/thousand seperator)",
+      "isButton": false
+    },
+    {
+      "name": "INVOICETOTALNUMBER",
+      "category": "Invoices",
+      "description": "Total price of the order, including tax (without currency and decimal/thousand seperator)",
+      "isButton": false
+    },
+    {
+      "name": "INVOICETYPEID",
+      "category": "Invoices",
+      "description": "The ID per document type (Invoice, Bill, Credit etc.)",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEXMLLINES",
+      "category": "Invoices",
+      "description": "Invoice Lines XML. Used in XML templates only.",
+      "isButton": false
+    },
+    {
+      "name": "INVOICE_PERRATE_SUBTOTAL",
+      "category": "Invoices",
+      "description": "Calculates the $-INVOICESUBTOTAL for each Tax Rate. Used in XML templates only.",
+      "isButton": false
+    },
+    {
+      "name": "INVOICE_PERRATE_TAXTOTAL",
+      "category": "Invoices",
+      "description": "Calculates the $-INVOICETAXTOTAL for each Tax Rate. Used in XML templates only.",
+      "isButton": false
+    },
+    {
+      "name": "ORDERNUMBER",
+      "category": "Invoices",
+      "description": "Order Number",
+      "isButton": false
+    },
+    {
+      "name": "ORIGINALCUSTOMERDELIVERYADDRESS",
+      "category": "Invoices",
+      "description": "The delivery address for the original Organisation of the invoice (defaults to the Organisation invoice address if no original found)",
+      "isButton": false
+    },
+    {
+      "name": "ORIGINALCUSTOMERINVOICEADDRESS",
+      "category": "Invoices",
+      "description": "The invoice address for the original Organisation of the invoice (defaults to the Organisation invoice address if no original found)",
+      "isButton": false
+    },
+    {
+      "name": "PAYMENTMETHOD",
+      "category": "Invoices",
+      "description": "Stripe Payment Method for automatic payments",
+      "isButton": false
+    },
+    {
+      "name": "RECURRINGINVOICEID",
+      "category": "Invoices",
+      "description": "The Recurring Invoice display ID",
+      "isButton": false
+    },
+    {
+      "name": "TAXBREAKDOWN",
+      "category": "Invoices",
+      "description": "Shows a breakdown of different Taxes. For use in the sub-totals",
+      "isButton": false
+    },
+    {
+      "name": "TAXXMLDETAIL",
+      "category": "Invoices",
+      "description": "Tax Detail XML. Used in XML templates only.",
+      "isButton": false
+    },
+    {
+      "name": "THIRDPARTYINVOICENUMBER",
+      "category": "Invoices",
+      "description": "Third-party Invoice Number",
+      "isButton": false
+    },
+    {
+      "name": "XEROINVOICEURL",
+      "category": "Invoices",
+      "description": "URL for customers to view and pay the Invoice in Xero",
+      "isButton": false
+    },
+    {
+      "name": "NOMINALCODE",
+      "category": "Item Buttons",
+      "description": "The Item Code of the Item in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "SUPPLIER_ID",
+      "category": "Item Buttons",
+      "description": "The unique ID of the Supplier in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "SUPPLIER_NAME",
+      "category": "Item Buttons",
+      "description": "The name of the Supplier in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "ITEMACCOUNTSID",
+      "category": "Items",
+      "description": "Item ID for Accounting Integration",
+      "isButton": false
+    },
+    {
+      "name": "ITEMASSETS",
+      "category": "Items",
+      "description": "A comma separated list of Asset/Device Numbers related to the Issued Item",
+      "isButton": false
+    },
+    {
+      "name": "ITEMCOST",
+      "category": "Items",
+      "description": "Cost",
+      "isButton": false
+    },
+    {
+      "name": "ITEMDEFAULTSUPPLIERPARTCODE",
+      "category": "Items",
+      "description": "Supplier SKU",
+      "isButton": false
+    },
+    {
+      "name": "ITEMEXTERNALREFERENCE",
+      "category": "Items",
+      "description": "External Reference",
+      "isButton": false
+    },
+    {
+      "name": "ITEMGROUPNAME",
+      "category": "Items",
+      "description": "Purchase Description",
+      "isButton": false
+    },
+    {
+      "name": "ITEMINTERNALREFERENCE",
+      "category": "Items",
+      "description": "Internal Reference",
+      "isButton": false
+    },
+    {
+      "name": "ITEMNAME",
+      "category": "Items",
+      "description": "Name",
+      "isButton": false
+    },
+    {
+      "name": "ITEMNOMINALCODE",
+      "category": "Items",
+      "description": "Income Account",
+      "isButton": false
+    },
+    {
+      "name": "ITEMNOTE",
+      "category": "Items",
+      "description": "Note",
+      "isButton": false
+    },
+    {
+      "name": "ITEMPRICE",
+      "category": "Items",
+      "description": "Price",
+      "isButton": false
+    },
+    {
+      "name": "ITEMPURCHASEDESCRIPTION",
+      "category": "Items",
+      "description": "Purchase Description",
+      "isButton": false
+    },
+    {
+      "name": "ITEMPURCHASENOMINALCODE",
+      "category": "Items",
+      "description": "Expense Account",
+      "isButton": false
+    },
+    {
+      "name": "ITEMRECURRINGPRICE",
+      "category": "Items",
+      "description": "Recurring Price",
+      "isButton": false
+    },
+    {
+      "name": "ITEMSALESDESCRIPTION",
+      "category": "Items",
+      "description": "Sales Description",
+      "isButton": false
+    },
+    {
+      "name": "ITEMSUPPLIERPARTCODE",
+      "category": "Items",
+      "description": "Manufacturer SKU",
+      "isButton": false
+    },
+    {
+      "name": "ITEMTYPENAME",
+      "category": "Items",
+      "description": "Sales Description",
+      "isButton": false
+    },
+    {
+      "name": "QUANTITYREMAINING",
+      "category": "Items",
+      "description": "The quantity currently in stock",
+      "isButton": false
+    },
+    {
+      "name": "KBARTICLETYPE",
+      "category": "Knowledge Base",
+      "description": "Article Type",
+      "isButton": false
+    },
+    {
+      "name": "KBCREATEDBY",
+      "category": "Knowledge Base",
+      "description": "Created by",
+      "isButton": false
+    },
+    {
+      "name": "KBDATECREATED",
+      "category": "Knowledge Base",
+      "description": "Date Created",
+      "isButton": false
+    },
+    {
+      "name": "KBDATEEDITED",
+      "category": "Knowledge Base",
+      "description": "Date Edited",
+      "isButton": false
+    },
+    {
+      "name": "KBDESCRIPTION",
+      "category": "Knowledge Base",
+      "description": "Description",
+      "isButton": false
+    },
+    {
+      "name": "KBEDITEDBY",
+      "category": "Knowledge Base",
+      "description": "Edited By",
+      "isButton": false
+    },
+    {
+      "name": "KBID",
+      "category": "Knowledge Base",
+      "description": "The unique ID of the KB Article in HaloITSM",
+      "isButton": false
+    },
+    {
+      "name": "KBINTERNALMEMO",
+      "category": "Knowledge Base",
+      "description": "Internal Memo",
+      "isButton": false
+    },
+    {
+      "name": "KBNEXTREVIEWDATE",
+      "category": "Knowledge Base",
+      "description": "Next Review Date:",
+      "isButton": false
+    },
+    {
+      "name": "KBNOTUSEFULCOUNT",
+      "category": "Knowledge Base",
+      "description": "A count of the article's npt useful votes",
+      "isButton": false
+    },
+    {
+      "name": "KBRESOLUTION",
+      "category": "Knowledge Base",
+      "description": "Resolution",
+      "isButton": false
+    },
+    {
+      "name": "KBTAGS",
+      "category": "Knowledge Base",
+      "description": "Tags",
+      "isButton": false
+    },
+    {
+      "name": "KBTITLE",
+      "category": "Knowledge Base",
+      "description": "Title",
+      "isButton": false
+    },
+    {
+      "name": "KBUSEFULCOUNT",
+      "category": "Knowledge Base",
+      "description": "A count of the article's useful votes",
+      "isButton": false
+    },
+    {
+      "name": "KBVIEWCOUNT",
+      "category": "Knowledge Base",
+      "description": "A count of the article's views",
+      "isButton": false
+    },
+    {
+      "name": "LINKTOARTICLE",
+      "category": "Knowledge Base",
+      "description": "A link to the knowledge base Article",
+      "isButton": false
+    },
+    {
+      "name": "PORTALURL",
+      "category": "Live Chat",
+      "description": "Web portal URL",
+      "isButton": false
+    },
+    {
+      "name": "RUNBOOKRESULT",
+      "category": "Live Chat",
+      "description": "The result message from the mostly recently executed Runbook associated with the chat.",
+      "isButton": false
+    },
+    {
+      "name": "SENDERNAME",
+      "category": "Live Chat",
+      "description": "The name of the sender of the message",
+      "isButton": false
+    },
+    {
+      "name": "INCOMPLETETIMESHEETPERCENTAGE",
+      "category": "Notification",
+      "description": "Percentage of Timesheet completed. Used on the Timesheet Incomplete template.",
+      "isButton": false
+    },
+    {
+      "name": "INCOMPLETETIMESHEETTABLE",
+      "category": "Notification",
+      "description": "Table of Incomplete Timesheets for Agents you manage. Used on the Managed Agents' Timesheet Incomplete template.",
+      "isButton": false
+    },
+    {
+      "name": "NOTIFICATIONACKNOWLEDGE",
+      "category": "Notification",
+      "description": "A link to acknowledge the Notification and open the linked entity",
+      "isButton": false
+    },
+    {
+      "name": "NOTIFICATIONMESSAGE",
+      "category": "Notification",
+      "description": "For Notifications, populates with the text from the corresponding Notification Template.",
+      "isButton": false
+    },
+    {
+      "name": "OPPADDR1",
+      "category": "Opportunity",
+      "description": "Address Line 1",
+      "isButton": false
+    },
+    {
+      "name": "OPPADDR2",
+      "category": "Opportunity",
+      "description": "Address Line 2",
+      "isButton": false
+    },
+    {
+      "name": "OPPADDR3",
+      "category": "Opportunity",
+      "description": "Address Line 3",
+      "isButton": false
+    },
+    {
+      "name": "OPPADDR4",
+      "category": "Opportunity",
+      "description": "Address Line 4",
+      "isButton": false
+    },
+    {
+      "name": "OPPATTEMPTSMADE",
+      "category": "Opportunity",
+      "description": "Attempts Made",
+      "isButton": false
+    },
+    {
+      "name": "OPPCOMPANYNAME",
+      "category": "Opportunity",
+      "description": "Company Name",
+      "isButton": false
+    },
+    {
+      "name": "OPPCONTACTNAME",
+      "category": "Opportunity",
+      "description": "Contact Name",
+      "isButton": false
+    },
+    {
+      "name": "OPPCONVERSIONPROBABILITY",
+      "category": "Opportunity",
+      "description": "Conversion Probability",
+      "isButton": false
+    },
+    {
+      "name": "OPPCONVERTEDDATE{}",
+      "category": "Opportunity",
+      "description": "Converted Date",
+      "isButton": false
+    },
+    {
+      "name": "OPPCOUNTRY",
+      "category": "Opportunity",
+      "description": "Country",
+      "isButton": false
+    },
+    {
+      "name": "OPPCURRENTSYSTEM",
+      "category": "Opportunity",
+      "description": "Current System",
+      "isButton": false
+    },
+    {
+      "name": "OPPCUSTOMERTITLE",
+      "category": "Opportunity",
+      "description": "Contact Title",
+      "isButton": false
+    },
+    {
+      "name": "OPPDEMODATE{}",
+      "category": "Opportunity",
+      "description": "Demo Date",
+      "isButton": false
+    },
+    {
+      "name": "OPPDISCOUNTDATE{}",
+      "category": "Opportunity",
+      "description": "Discount Date",
+      "isButton": false
+    },
+    {
+      "name": "OPPEMAILADDRESS",
+      "category": "Opportunity",
+      "description": "Email Address",
+      "isButton": false
+    },
+    {
+      "name": "OPPHEAR",
+      "category": "Opportunity",
+      "description": "How Did They Hear",
+      "isButton": false
+    },
+    {
+      "name": "OPPJOBTITLE",
+      "category": "Opportunity",
+      "description": "Job Title",
+      "isButton": false
+    },
+    {
+      "name": "OPPPOSTCODE",
+      "category": "Opportunity",
+      "description": "Post/ZIP Code",
+      "isButton": false
+    },
+    {
+      "name": "OPPPRODUCTCHOSEN",
+      "category": "Opportunity",
+      "description": "Competitor Chosen",
+      "isButton": false
+    },
+    {
+      "name": "OPPPROFIT",
+      "category": "Opportunity",
+      "description": "Profit",
+      "isButton": false
+    },
+    {
+      "name": "OPPREASON",
+      "category": "Opportunity",
+      "description": "Reason",
+      "isButton": false
+    },
+    {
+      "name": "OPPREGION",
+      "category": "Opportunity",
+      "description": "Region",
+      "isButton": false
+    },
+    {
+      "name": "OPPTEL",
+      "category": "Opportunity",
+      "description": "Phone Number",
+      "isButton": false
+    },
+    {
+      "name": "OPPTRIALDATE{}",
+      "category": "Opportunity",
+      "description": "Trial Date",
+      "isButton": false
+    },
+    {
+      "name": "OPPTYPE",
+      "category": "Opportunity",
+      "description": "Company Type",
+      "isButton": false
+    },
+    {
+      "name": "OPPVALUE",
+      "category": "Opportunity",
+      "description": "Potential Value",
+      "isButton": false
+    },
+    {
+      "name": "OPPVALUEADJUSTED",
+      "category": "Opportunity",
+      "description": "Opportunity Value",
+      "isButton": false
+    },
+    {
+      "name": "OPPVALUEANNUAL",
+      "category": "Opportunity",
+      "description": "Potential Value (Annual)",
+      "isButton": false
+    },
+    {
+      "name": "OPPVALUEMONTHLY",
+      "category": "Opportunity",
+      "description": "Potential Value (Monthly)",
+      "isButton": false
+    },
+    {
+      "name": "OPPVALUEONEOFF",
+      "category": "Opportunity",
+      "description": "Potential Value (One-Off)",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTSID",
+      "category": "Organisation Buttons",
+      "description": "The Accounts ID of the Organisation",
+      "isButton": true
+    },
+    {
+      "name": "ACTGUID",
+      "category": "Organisation Buttons",
+      "description": "The ACT ID of the Organisation",
+      "isButton": true
+    },
+    {
+      "name": "AZURETENANTID",
+      "category": "Organisation Buttons",
+      "description": "The Azure Tenant ID of the Organisation",
+      "isButton": true
+    },
+    {
+      "name": "CAUTOMATEID",
+      "category": "Organisation Buttons",
+      "description": "The ConnectWise Automate ID of the Organisation",
+      "isButton": true
+    },
+    {
+      "name": "GFICLIENTID",
+      "category": "Organisation Buttons",
+      "description": "The N-Able RMM ID of the Organisation",
+      "isButton": true
+    },
+    {
+      "name": "ID",
+      "category": "Organisation Buttons",
+      "description": "The unique ID of the Organisation in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "NAME",
+      "category": "Organisation Buttons",
+      "description": "The name of the Organisation in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "NINJARMMID",
+      "category": "Organisation Buttons",
+      "description": "The NinjaOne ID of the Organisation",
+      "isButton": true
+    },
+    {
+      "name": "XEROID",
+      "category": "Organisation Buttons",
+      "description": "The Xero ID of the Organisation",
+      "isButton": true
+    },
+    {
+      "name": "ACCOUNTSEMAILADDRESS",
+      "category": "Organisation details",
+      "description": "Organisation Accounts Email Address",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTSFIRSTNAME",
+      "category": "Organisation details",
+      "description": "Accounts First Name",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTSLASTNAME",
+      "category": "Organisation details",
+      "description": "Accounts Last Name",
+      "isButton": false
+    },
+    {
+      "name": "AREA",
+      "category": "Organisation details",
+      "description": "Organisation Name",
+      "isButton": false
+    },
+    {
+      "name": "AREASITE",
+      "category": "Organisation details",
+      "description": "Organisation and Site name",
+      "isButton": false
+    },
+    {
+      "name": "CLIENT_ID",
+      "category": "Organisation details",
+      "description": "The unique ID of the Organisation in HaloITSM",
+      "isButton": false
+    },
+    {
+      "name": "CLIENT_REFERENCE",
+      "category": "Organisation details",
+      "description": "Organisation Reference",
+      "isButton": false
+    },
+    {
+      "name": "CLIENT_TAX_NUMBER",
+      "category": "Organisation details",
+      "description": "Organisation Tax Number",
+      "isButton": false
+    },
+    {
+      "name": "INVOICENUMBER",
+      "category": "Organisation details",
+      "description": "Invoice Number",
+      "isButton": false
+    },
+    {
+      "name": "PRIMARYAGENT",
+      "category": "Organisation details",
+      "description": "The primary Agent",
+      "isButton": false
+    },
+    {
+      "name": "SECONDARYAGENT",
+      "category": "Organisation details",
+      "description": "The secondary Agent",
+      "isButton": false
+    },
+    {
+      "name": "THIRDPARTYCUSTOMERNAME",
+      "category": "Organisation details",
+      "description": "Third Party Organisation Name",
+      "isButton": false
+    },
+    {
+      "name": "TOPLEVELNAME",
+      "category": "Organisation details",
+      "description": "Top Level",
+      "isButton": false
+    },
+    {
+      "name": "TOTALAMOUNTDUE",
+      "category": "Organisation details",
+      "description": "The amount due to be paid across all of the Organisation's invoices",
+      "isButton": false
+    },
+    {
+      "name": "DETAILSTABLE",
+      "category": "PDF Templates",
+      "description": "Prints the entire table. Does not include the <table> element",
+      "isButton": false
+    },
+    {
+      "name": "DETAILSTABLEHEADER",
+      "category": "PDF Templates",
+      "description": "Prints the tables column header row",
+      "isButton": false
+    },
+    {
+      "name": "DETAILSTABLEHEADERNONRECURRING",
+      "category": "PDF Templates",
+      "description": "Prints the tables column header row without columns related to recurring items",
+      "isButton": false
+    },
+    {
+      "name": "PAGEBREAK",
+      "category": "PDF Templates",
+      "description": "Forces a new page in PDF Templates",
+      "isButton": false
+    },
+    {
+      "name": "PREPAYAMOUNT",
+      "category": "Pre-pay",
+      "description": "Amount",
+      "isButton": false
+    },
+    {
+      "name": "PREPAYDATE",
+      "category": "Pre-pay",
+      "description": "Pre-Pay Period Start Date",
+      "isButton": false
+    },
+    {
+      "name": "PREPAYNOTE",
+      "category": "Pre-pay",
+      "description": "Note",
+      "isButton": false
+    },
+    {
+      "name": "PREPAYSHORTDATE",
+      "category": "Pre-pay",
+      "description": "Pre-Pay Period Start Date (Date Only)",
+      "isButton": false
+    },
+    {
+      "name": "PARENTORDERID",
+      "category": "Project",
+      "description": "The ID of the Sales Order associated to the Parent Ticket/Opportunity",
+      "isButton": false
+    },
+    {
+      "name": "PROJECTMONEYACTUAL",
+      "category": "Project",
+      "description": "Money Actual",
+      "isButton": false
+    },
+    {
+      "name": "PROJECTMONEYBUDGET",
+      "category": "Project",
+      "description": "Money Budget",
+      "isButton": false
+    },
+    {
+      "name": "PROJECTTIMEACTUAL",
+      "category": "Project",
+      "description": "Time Actual",
+      "isButton": false
+    },
+    {
+      "name": "PROJECTTIMEBUDGET",
+      "category": "Project",
+      "description": "Time Budget",
+      "isButton": false
+    },
+    {
+      "name": "COSTCENTRE",
+      "category": "Purchase Orders",
+      "description": "Cost Centre",
+      "isButton": false
+    },
+    {
+      "name": "LINKTOCONFIRMPURCHASEORDERRECEIPT",
+      "category": "Purchase Orders",
+      "description": "Link to confirm the Receipt of a PO",
+      "isButton": false
+    },
+    {
+      "name": "POAPPROVALNOTE",
+      "category": "Purchase Orders",
+      "description": "If approved, any notes the approver added",
+      "isButton": false
+    },
+    {
+      "name": "POAUTHBY",
+      "category": "Purchase Orders",
+      "description": "Name of the person who authorised the order",
+      "isButton": false
+    },
+    {
+      "name": "POCARRIAGEAMOUNT",
+      "category": "Purchase Orders",
+      "description": "Carriage profit",
+      "isButton": false
+    },
+    {
+      "name": "POCARRIAGEDESC",
+      "category": "Purchase Orders",
+      "description": "Carriage description",
+      "isButton": false
+    },
+    {
+      "name": "PODATE",
+      "category": "Purchase Orders",
+      "description": "The date created",
+      "isButton": false
+    },
+    {
+      "name": "PODELIVERTO",
+      "category": "Purchase Orders",
+      "description": "The delivery address for the PO",
+      "isButton": false
+    },
+    {
+      "name": "POLINES",
+      "category": "Purchase Orders",
+      "description": "Prints lines of the order. For PDF templates only.",
+      "isButton": false
+    },
+    {
+      "name": "POLINK",
+      "category": "Purchase Orders",
+      "description": "Link to the purchase order in the Agent web application",
+      "isButton": false
+    },
+    {
+      "name": "PONOTE",
+      "category": "Purchase Orders",
+      "description": "Notes on the order",
+      "isButton": false
+    },
+    {
+      "name": "POREF",
+      "category": "Purchase Orders",
+      "description": "Order reference",
+      "isButton": false
+    },
+    {
+      "name": "POSTATUS",
+      "category": "Purchase Orders",
+      "description": "The current user defined status of the order",
+      "isButton": false
+    },
+    {
+      "name": "POSUBTOTAL",
+      "category": "Purchase Orders",
+      "description": "Total price of the order, not including tax",
+      "isButton": false
+    },
+    {
+      "name": "POTAXTOTAL",
+      "category": "Purchase Orders",
+      "description": "Total tax on the order",
+      "isButton": false
+    },
+    {
+      "name": "POTITLE",
+      "category": "Purchase Orders",
+      "description": "Order title",
+      "isButton": false
+    },
+    {
+      "name": "POTOTAL",
+      "category": "Purchase Orders",
+      "description": "Total price of the order, including tax",
+      "isButton": false
+    },
+    {
+      "name": "POUSEREMAILADDRESS",
+      "category": "Purchase Orders",
+      "description": "The email address of the User on the Purchase Order",
+      "isButton": false
+    },
+    {
+      "name": "SUPPLIERSORDERREFERENCE",
+      "category": "Purchase Orders",
+      "description": "The Suppliers own order reference",
+      "isButton": false
+    },
+    {
+      "name": "SUPPLIER_ADDRESS",
+      "category": "Purchase Orders",
+      "description": "Address",
+      "isButton": false
+    },
+    {
+      "name": "THIRDPARTYPONUMBER",
+      "category": "Purchase Orders",
+      "description": "3rd Party Ref",
+      "isButton": false
+    },
+    {
+      "name": "AUTOINCREASEPERCENT",
+      "category": "Quotation Lines",
+      "description": "The Percent Increase of the line. Can be used on Quotations and Sales Orders",
+      "isButton": false
+    },
+    {
+      "name": "AUTOINCREASEPERIOD",
+      "category": "Quotation Lines",
+      "description": "The Percent Increase Period of the line. Can be used on Quotations and Sales Orders",
+      "isButton": false
+    },
+    {
+      "name": "BASEPRICE",
+      "category": "Quotation Lines",
+      "description": "The base price of a single item",
+      "isButton": false
+    },
+    {
+      "name": "BILLINGPERIOD",
+      "category": "Quotation Lines",
+      "description": "Billing period of recurring item",
+      "isButton": false
+    },
+    {
+      "name": "COSTPRICE",
+      "category": "Quotation Lines",
+      "description": "The cost of a single item",
+      "isButton": false
+    },
+    {
+      "name": "DISCOUNT",
+      "category": "Quotation Lines",
+      "description": "The discount given on a single item",
+      "isButton": false
+    },
+    {
+      "name": "DISCOUNT_PERCENTAGE",
+      "category": "Quotation Lines",
+      "description": "Discount as a % of price",
+      "isButton": false
+    },
+    {
+      "name": "EXTERNAL_REF",
+      "category": "Quotation Lines",
+      "description": "External Reference For The Item",
+      "isButton": false
+    },
+    {
+      "name": "ID",
+      "category": "Quotation Lines",
+      "description": "The lines unique identifier",
+      "isButton": false
+    },
+    {
+      "name": "INTERNAL_REF",
+      "category": "Quotation Lines",
+      "description": "Internal Reference For The Item",
+      "isButton": false
+    },
+    {
+      "name": "ITEM_GROUP",
+      "category": "Quotation Lines",
+      "description": "Item Group for the Item",
+      "isButton": false
+    },
+    {
+      "name": "ITEM_ID",
+      "category": "Quotation Lines",
+      "description": "The items Id",
+      "isButton": false
+    },
+    {
+      "name": "LINE_URL",
+      "category": "Quotation Lines",
+      "description": "URL to item",
+      "isButton": false
+    },
+    {
+      "name": "MARGIN",
+      "category": "Quotation Lines",
+      "description": "The margin on a single item (from the item record)",
+      "isButton": false
+    },
+    {
+      "name": "NAME",
+      "category": "Quotation Lines",
+      "description": "Item name/description",
+      "isButton": false
+    },
+    {
+      "name": "NETAMOUNT",
+      "category": "Quotation Lines",
+      "description": "The price of a single item + tax on a single item",
+      "isButton": false
+    },
+    {
+      "name": "NOTE",
+      "category": "Quotation Lines",
+      "description": "Item notes",
+      "isButton": false
+    },
+    {
+      "name": "OPTIONAL",
+      "category": "Quotation Lines",
+      "description": "Whether the line is optional. Y = Yes, N = No",
+      "isButton": false
+    },
+    {
+      "name": "PERIODS",
+      "category": "Quotation Lines",
+      "description": "Number of periods for recurring items",
+      "isButton": false
+    },
+    {
+      "name": "PRICE",
+      "category": "Quotation Lines",
+      "description": "The price of a single item",
+      "isButton": false
+    },
+    {
+      "name": "PRODUCTCODE",
+      "category": "Quotation Lines",
+      "description": "SKU",
+      "isButton": false
+    },
+    {
+      "name": "PROFIT",
+      "category": "Quotation Lines",
+      "description": "The profit from a single item",
+      "isButton": false
+    },
+    {
+      "name": "PROFIT_PERCENTAGE",
+      "category": "Quotation Lines",
+      "description": "Profit as a % of price",
+      "isButton": false
+    },
+    {
+      "name": "PURCHASECURRENCYCOST",
+      "category": "Quotation Lines",
+      "description": "Cost in the selected Purchase Currency",
+      "isButton": false
+    },
+    {
+      "name": "PURCHASECURRENCYCOSTTOTAL",
+      "category": "Quotation Lines",
+      "description": "Cost in the selected Purchase Currency multiplied by quantity",
+      "isButton": false
+    },
+    {
+      "name": "PURCHASECURRENCYRATE",
+      "category": "Quotation Lines",
+      "description": "Purchase Currency Conversion Rate",
+      "isButton": false
+    },
+    {
+      "name": "PURCHASEDESCRIPTION",
+      "category": "Quotation Lines",
+      "description": "The purchase description of an asset",
+      "isButton": false
+    },
+    {
+      "name": "QUANTITY",
+      "category": "Quotation Lines",
+      "description": "The number of items on the line",
+      "isButton": false
+    },
+    {
+      "name": "RECOVERY",
+      "category": "Quotation Lines",
+      "description": "The recovery on a single item (from the item record)",
+      "isButton": false
+    },
+    {
+      "name": "SALESDESCRIPTION",
+      "category": "Quotation Lines",
+      "description": "The sales description of an asset",
+      "isButton": false
+    },
+    {
+      "name": "SEQUENCE",
+      "category": "Quotation Lines",
+      "description": "The position of the line",
+      "isButton": false
+    },
+    {
+      "name": "SERVICEFEE",
+      "category": "Quotation Lines",
+      "description": "The service fee on a single item (from the item record)",
+      "isButton": false
+    },
+    {
+      "name": "SORT_SEQ",
+      "category": "Quotation Lines",
+      "description": "The sequence number used for sorting",
+      "isButton": false
+    },
+    {
+      "name": "SUM_COSTPRICE",
+      "category": "Quotation Lines",
+      "description": "Cost of one item multipled by quantity",
+      "isButton": false
+    },
+    {
+      "name": "SUM_DISCOUNT",
+      "category": "Quotation Lines",
+      "description": "Discount on one item multiplied by quantity",
+      "isButton": false
+    },
+    {
+      "name": "SUM_NETAMOUNT",
+      "category": "Quotation Lines",
+      "description": "Net amount of one item multiplied by quantity - total price to pay for the line",
+      "isButton": false
+    },
+    {
+      "name": "SUM_PRICE",
+      "category": "Quotation Lines",
+      "description": "Sum of price and quantity (excluding tax)",
+      "isButton": false
+    },
+    {
+      "name": "SUM_PROFIT",
+      "category": "Quotation Lines",
+      "description": "Profit on one item multiplied by quantity",
+      "isButton": false
+    },
+    {
+      "name": "SUM_TAX",
+      "category": "Quotation Lines",
+      "description": "Tax on one item multiplied by quantity",
+      "isButton": false
+    },
+    {
+      "name": "TAX",
+      "category": "Quotation Lines",
+      "description": "The tax on a single item",
+      "isButton": false
+    },
+    {
+      "name": "TAXDESCRIPTION",
+      "category": "Quotation Lines",
+      "description": "The Tax Description For The Item",
+      "isButton": false
+    },
+    {
+      "name": "TERMNETAMOUNT",
+      "category": "Quotation Lines",
+      "description": "The net amount for the entire term of the item",
+      "isButton": false
+    },
+    {
+      "name": "TERMNETTOTAL",
+      "category": "Quotation Lines",
+      "description": "The net amount for the entire term of the item multiplied by quantity",
+      "isButton": false
+    },
+    {
+      "name": "AGENTQUOTECOUNTERSIGNATURE",
+      "category": "Quotations",
+      "description": "Prints the signature of the Agent who countersigned the quote",
+      "isButton": false
+    },
+    {
+      "name": "AGENTQUOTESIGNATURE",
+      "category": "Quotations",
+      "description": "Prints the Agents Signature used for signing",
+      "isButton": false
+    },
+    {
+      "name": "APPROVERAGENTQUOTESIGNATURE",
+      "category": "Quotations",
+      "description": "Prints the signature of the Agent who approved the quote",
+      "isButton": false
+    },
+    {
+      "name": "COUNTERSIGNAPPROVE",
+      "category": "Quotations",
+      "description": "Prints a URL link that can be used to automatically countersign the quote the email is sent from",
+      "isButton": false
+    },
+    {
+      "name": "COUNTERSIGNREJECT",
+      "category": "Quotations",
+      "description": "Prints a URL link that can be used to reject the quote the email is sent from",
+      "isButton": false
+    },
+    {
+      "name": "CURRENCY_SYMBOL",
+      "category": "Quotations",
+      "description": "Prints the quotes currency",
+      "isButton": false
+    },
+    {
+      "name": "PURCHASECURRENCYTOTALPROFIT",
+      "category": "Quotations",
+      "description": "Total profit in the Purchase Currency of the Organisation's Top Level",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEAGENT",
+      "category": "Quotations",
+      "description": "The name of the Agent that has raised the quotation",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEAGENTFIRSTNAME",
+      "category": "Quotations",
+      "description": "The first name of the Agent that has raised the quotation",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEAGENTLASTNAME",
+      "category": "Quotations",
+      "description": "The last name of the Agent that has raised the quotation",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEAPPROVAL",
+      "category": "Quotations",
+      "description": "A web link to approve or reject the quote",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEAPPROVALDATE",
+      "category": "Quotations",
+      "description": "Approval Date",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEAPPROVALDATETIME",
+      "category": "Quotations",
+      "description": "Date and time a quote was approved",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEAPPROVALEMAIL",
+      "category": "Quotations",
+      "description": "Approver Email",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEAPPROVALNAME",
+      "category": "Quotations",
+      "description": "Approver Name",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEAPPROVALNOTE",
+      "category": "Quotations",
+      "description": "If approved, any notes the approver added",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEAPPROVALPONUMBER",
+      "category": "Quotations",
+      "description": "The quote's approval purchase order number",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEASSIGNEDAGENT",
+      "category": "Quotations",
+      "description": "Assigned Agent",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEAUTHBY",
+      "category": "Quotations",
+      "description": "Name of the person who authorised the quotation",
+      "isButton": false
+    },
+    {
+      "name": "QUOTECANNEDVARIABLE",
+      "category": "Quotations",
+      "description": "Canned Text Variable for Quotes",
+      "isButton": false
+    },
+    {
+      "name": "QUOTECARRIAGEDESC",
+      "category": "Quotations",
+      "description": "Carriage description",
+      "isButton": false
+    },
+    {
+      "name": "QUOTECARRIAGEPROFT",
+      "category": "Quotations",
+      "description": "Carriage profit",
+      "isButton": false
+    },
+    {
+      "name": "QUOTECOST",
+      "category": "Quotations",
+      "description": "Total cost of the quote (sum of the cost of all items)",
+      "isButton": false
+    },
+    {
+      "name": "QUOTECOUNTERSIGNDATE",
+      "category": "Quotations",
+      "description": "Date and time a quote was countersigned",
+      "isButton": false
+    },
+    {
+      "name": "QUOTECOUNTERSIGNDATETIME",
+      "category": "Quotations",
+      "description": "Date a quote was countersigned",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEDATE",
+      "category": "Quotations",
+      "description": "The date that the quote was created",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEDAYSTODELIVER",
+      "category": "Quotations",
+      "description": "Number of days to deliver the service",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEEXPIRY",
+      "category": "Quotations",
+      "description": "The expiration date of the quote",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEITEM_TCS",
+      "category": "Quotations",
+      "description": "Terms and conditions for all items on the quotation",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINES",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only.",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESANNUAL",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Annual lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESFIVEYEARLY",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Five Yearly lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESFOURYEARLY",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Four Yearly lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESMONTHLY",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Monthly lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESNONOPTIONAL",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Non-optional lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESNONOPTIONALNONRECURRING",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Non-optional non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESNONOPTIONALRECURRING",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Non-optional recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESNONRECURRING",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESOPTIONAL",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Optional lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESOPTIONALNONRECURRING",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Optional non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESOPTIONALRECURRING",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Optional recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESQUARTERLY",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. 6-Monthly lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESRECURRING",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESSIXMONTHLY",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Quarterly lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESTHREEYEARLY",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Three Yearly lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESTWOYEARLY",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Two Yearly lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINESWEEKLY",
+      "category": "Quotations",
+      "description": "Prints lines of the quotation. For PDF templates only. Weekly lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTELINK",
+      "category": "Quotations",
+      "description": "Link to the quote in the Agent web application",
+      "isButton": false
+    },
+    {
+      "name": "QUOTENOTE",
+      "category": "Quotations",
+      "description": "Notes on the quote",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEPROFIT",
+      "category": "Quotations",
+      "description": "Total profit of the quote",
+      "isButton": false
+    },
+    {
+      "name": "QUOTERECURRINGTOTAL",
+      "category": "Quotations",
+      "description": "Total price of recurring items on the quote",
+      "isButton": false
+    },
+    {
+      "name": "QUOTEREF",
+      "category": "Quotations",
+      "description": "Quote reference",
+      "isButton": false
+    },
+    {
+      "name": "QUOTERISK",
+      "category": "Quotations",
+      "description": "Risk level",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESCOPE",
+      "category": "Quotations",
+      "description": "Quote scope",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESIGNATURE",
+      "category": "Quotations",
+      "description": "Customer Signature",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESIGNATUREIPADDRESS",
+      "category": "Quotations",
+      "description": "Approval IP Address",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESTATUS",
+      "category": "Quotations",
+      "description": "The current status of the quote",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESUBTOTAL(+ANNUAL/MONTHLY/etc)",
+      "category": "Quotations",
+      "description": "Total price of the quote, not including tax",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESUBTOTALNONOPTIONAL",
+      "category": "Quotations",
+      "description": "Total price of the quote, not including tax. Non-optional lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESUBTOTALNONOPTIONALNONRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, not including tax. Non-optional non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESUBTOTALNONOPTIONALRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, not including tax. Non-optional recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESUBTOTALNONRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, not including tax. Non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESUBTOTALOPTIONAL",
+      "category": "Quotations",
+      "description": "Total price of the quote, not including tax. Optional lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESUBTOTALOPTIONALNONRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, not including tax. Optional non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESUBTOTALOPTIONALRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, not including tax. Optional recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESUBTOTALRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, not including tax. Recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTESUBTOTALRECURRINGTERM",
+      "category": "Quotations",
+      "description": "Total price for the entire term of the quote recurring lines, not including tax.",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETAXTOTAL(+ANNUAL/MONTHLY/etc)",
+      "category": "Quotations",
+      "description": "Total tax on the quote",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETAXTOTALESTIMATE",
+      "category": "Quotations",
+      "description": "Tax Estimate",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETAXTOTALNONOPTIONAL",
+      "category": "Quotations",
+      "description": "Total tax on the quote. Non-optional lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETAXTOTALNONOPTIONALNONRECURRING",
+      "category": "Quotations",
+      "description": "Total tax on the quote. Non-optional non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETAXTOTALNONOPTIONALRECURRING",
+      "category": "Quotations",
+      "description": "Total tax on the quote. Non-optional recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETAXTOTALNONRECURRING",
+      "category": "Quotations",
+      "description": "Total tax on the quote. Non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETAXTOTALOPTIONAL",
+      "category": "Quotations",
+      "description": "Total tax on the quote. Optional lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETAXTOTALOPTIONALNONRECURRING",
+      "category": "Quotations",
+      "description": "Total tax on the quote. Optional non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETAXTOTALOPTIONALRECURRING",
+      "category": "Quotations",
+      "description": "Total tax on the quote. Optional recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETAXTOTALRECURRING",
+      "category": "Quotations",
+      "description": "Total tax on the quote. Recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETAXTOTALRECURRINGTERM",
+      "category": "Quotations",
+      "description": "Total tax for the entire term of the quote recurring lines, including tax.",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETITLE",
+      "category": "Quotations",
+      "description": "Quote title",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTAL(+ANNUAL/MONTHLY/etc)",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALANNUAL",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax - Yearly",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALCURRENT",
+      "category": "Quotations",
+      "description": "Total price of current costs taken from comparative quoting",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALDIFFERENCE",
+      "category": "Quotations",
+      "description": "Total difference between your Quote and current costs",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALMONTHLY",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax - Monthly",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALNONOPTIONAL",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax. Non-optional lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALNONOPTIONALNONRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax. Non-optional non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALNONOPTIONALRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax. Non-optional recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALNONRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax. Non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALOPTIONAL",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax. Optional lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALOPTIONALNONRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax. Optional non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALOPTIONALRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax. Optional recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALQUARTERLY",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax - Quarterly",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALRECURRING",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax. Recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALRECURRINGTERM",
+      "category": "Quotations",
+      "description": "Total price for the entire term of the quote recurring lines, including tax.",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALSIXMONTHLY",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax - 6-Monthly",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALTHREEYEARLY",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax - 3-Yearly",
+      "isButton": false
+    },
+    {
+      "name": "QUOTETOTALTWOYEARLY",
+      "category": "Quotations",
+      "description": "Total price of the quote, including tax - 2-Yearly",
+      "isButton": false
+    },
+    {
+      "name": "ASSETLIST_DEVICENUMBER",
+      "category": "Recurring Billing",
+      "description": "A list of Asset Tags/Asset Numbers related to the Invoice line",
+      "isButton": false
+    },
+    {
+      "name": "CURRENTMETERREADING",
+      "category": "Recurring Billing",
+      "description": "Current reading",
+      "isButton": false
+    },
+    {
+      "name": "LASTMETERREADINGDATE",
+      "category": "Recurring Billing",
+      "description": "Last reading date",
+      "isButton": false
+    },
+    {
+      "name": "NEXTRECURRINGBILLINGDATE",
+      "category": "Recurring Billing",
+      "description": "Next invoice date",
+      "isButton": false
+    },
+    {
+      "name": "PREVIOUSMETERREADING",
+      "category": "Recurring Billing",
+      "description": "Last billed reading",
+      "isButton": false
+    },
+    {
+      "name": "RECURRINGBILLINGDATE",
+      "category": "Recurring Billing",
+      "description": "The date created",
+      "isButton": false
+    },
+    {
+      "name": "USAGEMETERREADING",
+      "category": "Recurring Billing",
+      "description": "Difference between the last billed and current reading",
+      "isButton": false
+    },
+    {
+      "name": "USERLIST_USERNAME",
+      "category": "Recurring Billing",
+      "description": "A list of Usernames related to the Invoice line",
+      "isButton": false
+    },
+    {
+      "name": "LINKTOREMOTE",
+      "category": "Remote Support",
+      "description": "A link to the Remote Support page.",
+      "isButton": false
+    },
+    {
+      "name": "REMOTEINVITE",
+      "category": "Remote Support",
+      "description": "The Remote Invite canned text to invite a user to a remote session.",
+      "isButton": false
+    },
+    {
+      "name": "REMOTESESSIONCODE",
+      "category": "Remote Support",
+      "description": "The Remote Session code generated by one of the Remote Support integrations",
+      "isButton": false
+    },
+    {
+      "name": "CLIENTID",
+      "category": "Report",
+      "description": "The Organisation ID of the logged-in User",
+      "isButton": false
+    },
+    {
+      "name": "REPORTAIANALYSIS",
+      "category": "Report",
+      "description": "The reports AI analysis",
+      "isButton": false
+    },
+    {
+      "name": "REPORTAIANALYSISDATE",
+      "category": "Report",
+      "description": "The date the AI analysis is from",
+      "isButton": false
+    },
+    {
+      "name": "REPORTCHART",
+      "category": "Report",
+      "description": "Prints the reports chart if applicable",
+      "isButton": false
+    },
+    {
+      "name": "REPORTDATA",
+      "category": "Report",
+      "description": "Prints the report table column headers and rows",
+      "isButton": false
+    },
+    {
+      "name": "REPORTENDDATE",
+      "category": "Report",
+      "description": "The reporting period end date if applicable",
+      "isButton": false
+    },
+    {
+      "name": "REPORTFORECASTDATA",
+      "category": "Report",
+      "description": "Prints the report forecast data table if configured.",
+      "isButton": false
+    },
+    {
+      "name": "REPORTPERIOD",
+      "category": "Report",
+      "description": "The reporting period if applicable",
+      "isButton": false
+    },
+    {
+      "name": "REPORTSTARTDATE",
+      "category": "Report",
+      "description": "The reporting period start date if applicable",
+      "isButton": false
+    },
+    {
+      "name": "REPORTTITLE",
+      "category": "Report",
+      "description": "The title of the report",
+      "isButton": false
+    },
+    {
+      "name": "SITEID",
+      "category": "Report",
+      "description": "The Site ID of the logged-in User",
+      "isButton": false
+    },
+    {
+      "name": "REPORT{id}AVG{COLNAME}",
+      "category": "Reports",
+      "description": "Average a column in the report, replace {COLNAME} with the name of the column to average (case must match). Replace {id} with the id of a report",
+      "isButton": false
+    },
+    {
+      "name": "REPORT{id}CHART",
+      "category": "Reports",
+      "description": "Prints the reports chart if applicable. Replace {id} with the id of a report",
+      "isButton": false
+    },
+    {
+      "name": "REPORT{id}COUNT",
+      "category": "Reports",
+      "description": "Count of the number of rows in the report. Replace {id} with the id of a report",
+      "isButton": false
+    },
+    {
+      "name": "REPORT{id}DATA",
+      "category": "Reports",
+      "description": "Prints the report table column headers and rows. Replace {id} with the id of a report",
+      "isButton": false
+    },
+    {
+      "name": "REPORT{id}ENDDATE",
+      "category": "Reports",
+      "description": "The reporting period end date if applicable. Replace {id} with the id of a report",
+      "isButton": false
+    },
+    {
+      "name": "REPORT{id}FORECASTDATA{COLNAME}",
+      "category": "Reports",
+      "description": "Prints the report forecast data table if configured.. Replace {id} with the id of a report",
+      "isButton": false
+    },
+    {
+      "name": "REPORT{id}PERIOD",
+      "category": "Reports",
+      "description": "The reporting period if applicable. Replace {id} with the id of a report",
+      "isButton": false
+    },
+    {
+      "name": "REPORT{id}STARTDATE",
+      "category": "Reports",
+      "description": "The reporting period start date if applicable. Replace {id} with the id of a report",
+      "isButton": false
+    },
+    {
+      "name": "REPORT{id}SUM{COLNAME}",
+      "category": "Reports",
+      "description": "Sum a column in the report, replace {COLNAME} with the name of the column to sum (case must match). Replace {id} with the id of a report",
+      "isButton": false
+    },
+    {
+      "name": "REPORT{id}TITLE",
+      "category": "Reports",
+      "description": "The title of the report. Replace {id} with the id of a report",
+      "isButton": false
+    },
+    {
+      "name": "ORDERCOST",
+      "category": "Sales Orders",
+      "description": "Total cost of the order (sum of the cost of all items)",
+      "isButton": false
+    },
+    {
+      "name": "ORDERDATE",
+      "category": "Sales Orders",
+      "description": "The date created",
+      "isButton": false
+    },
+    {
+      "name": "ORDERID",
+      "category": "Sales Orders",
+      "description": "Sales Order ID",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINES",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only.",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINESANNUAL",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only. Annual lines only",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINESFIVEYEARLY",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only. Five Yearly lines only",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINESFOURYEARLY",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only. Four Yearly lines only",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINESMONTHLY",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only. Monthly lines only",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINESNONRECURRING",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only. Non-recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINESQUARTERLY",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only. 6-Monthly lines only",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINESRECURRING",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only. Recurring lines only",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINESSIXMONTHLY",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only. Quarterly lines only",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINESTHREEYEARLY",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only. Three Yearly lines only",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINESTWOYEARLY",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only. Two Yearly lines only",
+      "isButton": false
+    },
+    {
+      "name": "ORDERLINESWEEKLY",
+      "category": "Sales Orders",
+      "description": "Prints lines of the order. For PDF templates only. Weekly lines only",
+      "isButton": false
+    },
+    {
+      "name": "ORDERNOTE",
+      "category": "Sales Orders",
+      "description": "Note on the order",
+      "isButton": false
+    },
+    {
+      "name": "ORDERNOTES",
+      "category": "Sales Orders",
+      "description": "Notes on the order",
+      "isButton": false
+    },
+    {
+      "name": "ORDERPO",
+      "category": "Sales Orders",
+      "description": "The PO number associated with the order",
+      "isButton": false
+    },
+    {
+      "name": "ORDERPROFIT",
+      "category": "Sales Orders",
+      "description": "Total profit of the order",
+      "isButton": false
+    },
+    {
+      "name": "ORDERSHIPDATE",
+      "category": "Sales Orders",
+      "description": "The order ship date",
+      "isButton": false
+    },
+    {
+      "name": "ORDERSTATUS",
+      "category": "Sales Orders",
+      "description": "The current user defined status of the order",
+      "isButton": false
+    },
+    {
+      "name": "ORDERSUBTOTAL",
+      "category": "Sales Orders",
+      "description": "Total price of the order, not including tax",
+      "isButton": false
+    },
+    {
+      "name": "ORDERTAXTOTAL",
+      "category": "Sales Orders",
+      "description": "Total tax on the order",
+      "isButton": false
+    },
+    {
+      "name": "ORDERTITLE",
+      "category": "Sales Orders",
+      "description": "Order title (Can also be used on Projects)",
+      "isButton": false
+    },
+    {
+      "name": "ORDERTOTAL",
+      "category": "Sales Orders",
+      "description": "Total price of the order, including tax",
+      "isButton": false
+    },
+    {
+      "name": "ORDER_LINE_DESCRIPTION",
+      "category": "Sales Orders",
+      "description": "The description of the Sales Order line (Can also be used on Projects)",
+      "isButton": false
+    },
+    {
+      "name": "ORDER_LINE_QUANTITY",
+      "category": "Sales Orders",
+      "description": "The quantity of the Sales Order line (Can also be used on Projects)",
+      "isButton": false
+    },
+    {
+      "name": "REFERENCE",
+      "category": "Sales Orders",
+      "description": "Invoice Reference",
+      "isButton": false
+    },
+    {
+      "name": "PASSWORD",
+      "category": "Self Service Portal",
+      "description": "Password Reset Link",
+      "isButton": false
+    },
+    {
+      "name": "PASSWORDRESETLINK",
+      "category": "Self Service Portal",
+      "description": "A link to the Password Reset page.",
+      "isButton": false
+    },
+    {
+      "name": "DELIVERYDAYS",
+      "category": "Service",
+      "description": "Service Delivery Days",
+      "isButton": false
+    },
+    {
+      "name": "DELIVERYHOURS",
+      "category": "Service",
+      "description": "Service Delivery Hours",
+      "isButton": false
+    },
+    {
+      "name": "OWNING_SERVICE_DISPLAYNAME",
+      "category": "Service",
+      "description": "The portal display name of the owning Service of a Ticket",
+      "isButton": false
+    },
+    {
+      "name": "OWNING_SERVICE_NAME",
+      "category": "Service",
+      "description": "The name of the owning Service of a Ticket",
+      "isButton": false
+    },
+    {
+      "name": "RICHSERVICEMESSAGE",
+      "category": "Service",
+      "description": "Service Public Note",
+      "isButton": false
+    },
+    {
+      "name": "RICHSERVICEMESSAGEINTERNAL",
+      "category": "Service",
+      "description": "Internal Service Internal Note",
+      "isButton": false
+    },
+    {
+      "name": "SERVICECOST",
+      "category": "Service",
+      "description": "Service Cost",
+      "isButton": false
+    },
+    {
+      "name": "SERVICELINKDETAILS",
+      "category": "Service",
+      "description": "Lists the Services linked to the Ticket.",
+      "isButton": false
+    },
+    {
+      "name": "SERVICELINKSTATUSDETAILS",
+      "category": "Service",
+      "description": "Lists the monitored Services linked to the Ticket, with the current status, number of subscribers and number of Assets.",
+      "isButton": false
+    },
+    {
+      "name": "SERVICEMESSAGE",
+      "category": "Service",
+      "description": "Service Public Note",
+      "isButton": false
+    },
+    {
+      "name": "SERVICEMESSAGEINTERNAL",
+      "category": "Service",
+      "description": "Internal Service Internal Note",
+      "isButton": false
+    },
+    {
+      "name": "SERVICENAME",
+      "category": "Service",
+      "description": "Service Name",
+      "isButton": false
+    },
+    {
+      "name": "SERVICESTATUS",
+      "category": "Service",
+      "description": "Service Status",
+      "isButton": false
+    },
+    {
+      "name": "SERVICESTATUSINTERNAL",
+      "category": "Service",
+      "description": "Internal Service Status",
+      "isButton": false
+    },
+    {
+      "name": "SERVICEUPDATEDATE",
+      "category": "Service",
+      "description": "Service Updated Date",
+      "isButton": false
+    },
+    {
+      "name": "SERVICE_DISPLAYNAME",
+      "category": "Service",
+      "description": "The portal display name of the Service related to a Ticket",
+      "isButton": false
+    },
+    {
+      "name": "SERVICE_NAME",
+      "category": "Service",
+      "description": "The name of the service related to a Ticket",
+      "isButton": false
+    },
+    {
+      "name": "FIXBYDATE{}",
+      "category": "Service Level Agreements",
+      "description": "Target Fix By Date",
+      "isButton": false
+    },
+    {
+      "name": "SERIOUSNESS",
+      "category": "Service Level Agreements",
+      "description": "Priority ID",
+      "isButton": false
+    },
+    {
+      "name": "SERIOUSNESS2",
+      "category": "Service Level Agreements",
+      "description": "Priority Description",
+      "isButton": false
+    },
+    {
+      "name": "SERIOUSNESSCOLOUR",
+      "category": "Service Level Agreements",
+      "description": "Priority Colour",
+      "isButton": false
+    },
+    {
+      "name": "SLADESCRIPTION",
+      "category": "Service Level Agreements",
+      "description": "Name of the SLA of the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "CLIENT_ID",
+      "category": "Site Buttons",
+      "description": "The unique ID of the Organisation in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "CLIENT_NAME",
+      "category": "Site Buttons",
+      "description": "The name of the Organisation in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "GFISITEID",
+      "category": "Site Buttons",
+      "description": "The N-Able RMM ID of the Site",
+      "isButton": true
+    },
+    {
+      "name": "SF",
+      "category": "Site Buttons",
+      "description": "All text Site Fields. $AF, followed by field name e.g. $SFAccount Number",
+      "isButton": true
+    },
+    {
+      "name": "ACCOUNTNUMBER",
+      "category": "Site details",
+      "description": "Site Account Number",
+      "isButton": false
+    },
+    {
+      "name": "COUNTRY",
+      "category": "Site details",
+      "description": "Country Name",
+      "isButton": false
+    },
+    {
+      "name": "COUNTRYCODE1",
+      "category": "Site details",
+      "description": "Country Code 1",
+      "isButton": false
+    },
+    {
+      "name": "COUNTRYCODE2",
+      "category": "Site details",
+      "description": "Country Code 2",
+      "isButton": false
+    },
+    {
+      "name": "DELIVERYADDRESS1",
+      "category": "Site details",
+      "description": "Site Address - Address Line 1",
+      "isButton": false
+    },
+    {
+      "name": "DELIVERYADDRESS2",
+      "category": "Site details",
+      "description": "Site Address - Address Line 2",
+      "isButton": false
+    },
+    {
+      "name": "DELIVERYADDRESS3",
+      "category": "Site details",
+      "description": "Site Address - Address Line 3",
+      "isButton": false
+    },
+    {
+      "name": "DELIVERYADDRESS4",
+      "category": "Site details",
+      "description": "Site Address - Address Line 4",
+      "isButton": false
+    },
+    {
+      "name": "DELIVERYPOSTCODE",
+      "category": "Site details",
+      "description": "Site Address - Post/ZIP Code",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEADDRESS1",
+      "category": "Site details",
+      "description": "Invoice Address - Address Line 1",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEADDRESS2",
+      "category": "Site details",
+      "description": "Invoice Address - Address Line 2",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEADDRESS3",
+      "category": "Site details",
+      "description": "Invoice Address - Address Line 3",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEADDRESS4",
+      "category": "Site details",
+      "description": "Invoice Address - Address Line 4",
+      "isButton": false
+    },
+    {
+      "name": "INVOICEPOSTCODE",
+      "category": "Site details",
+      "description": "Invoice Address - Post/ZIP Code",
+      "isButton": false
+    },
+    {
+      "name": "REGION",
+      "category": "Site details",
+      "description": "Region Code",
+      "isButton": false
+    },
+    {
+      "name": "SITE",
+      "category": "Site details",
+      "description": "Site Name",
+      "isButton": false
+    },
+    {
+      "name": "SITEPHONENUMBER",
+      "category": "Site details",
+      "description": "Site Telephone Number",
+      "isButton": false
+    },
+    {
+      "name": "LICENCEBILLINGCYCLE",
+      "category": "Software Licences",
+      "description": "Licence Term",
+      "isButton": false
+    },
+    {
+      "name": "LICENCECOST",
+      "category": "Software Licences",
+      "description": "Licence Cost",
+      "isButton": false
+    },
+    {
+      "name": "LICENCECOUNT",
+      "category": "Software Licences",
+      "description": "Licence Count",
+      "isButton": false
+    },
+    {
+      "name": "LICENCEENDDATE",
+      "category": "Software Licences",
+      "description": "Licence End Date",
+      "isButton": false
+    },
+    {
+      "name": "LICENCEID",
+      "category": "Software Licences",
+      "description": "Licence ID",
+      "isButton": false
+    },
+    {
+      "name": "LICENCENAME",
+      "category": "Software Licences",
+      "description": "Licence Name",
+      "isButton": false
+    },
+    {
+      "name": "LICENCEPRICE",
+      "category": "Software Licences",
+      "description": "Licence Price",
+      "isButton": false
+    },
+    {
+      "name": "LICENCESTARTDATE",
+      "category": "Software Licences",
+      "description": "Licence Start Date",
+      "isButton": false
+    },
+    {
+      "name": "LICENCETERM",
+      "category": "Software Licences",
+      "description": "Licence Billing Cycle",
+      "isButton": false
+    },
+    {
+      "name": "STATS_AVG_INCIDENT_RESPONSE_TIME",
+      "category": "Stats",
+      "description": "Average response time for incidents in the period.",
+      "isButton": false
+    },
+    {
+      "name": "STATS_AWESOME_FEEDBACK_PERCENTAGE",
+      "category": "Stats",
+      "description": "Percentage of Feedback in the top band in the period.",
+      "isButton": false
+    },
+    {
+      "name": "STATS_FIX_INSIDE_PERCENTAGE",
+      "category": "Stats",
+      "description": "Percentage of closures inside SLA in the period.",
+      "isButton": false
+    },
+    {
+      "name": "STATS_TICKETS_CLOSED",
+      "category": "Stats",
+      "description": "Tickets closed in the period.",
+      "isButton": false
+    },
+    {
+      "name": "STATS_TICKETS_LOGGED",
+      "category": "Stats",
+      "description": "New tickets opened in the period.",
+      "isButton": false
+    },
+    {
+      "name": "STATS_TIMETAKEN",
+      "category": "Stats",
+      "description": "Total time logged in the period.",
+      "isButton": false
+    },
+    {
+      "name": "SUPPLIER_CONTACT",
+      "category": "Supplier",
+      "description": "Supplier Contact Name",
+      "isButton": false
+    },
+    {
+      "name": "SUPPLIER_NAME",
+      "category": "Supplier",
+      "description": "Supplier Name",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTS_ID",
+      "category": "Supplier Buttons",
+      "description": "The Accounts ID of the Supplier in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "SUPPLIERCONTRACTID",
+      "category": "Supplier Contract",
+      "description": "Supplier Contract ID",
+      "isButton": false
+    },
+    {
+      "name": "SUPPLIERCONTRACTNOTE",
+      "category": "Supplier Contract",
+      "description": "Supplier Contract note",
+      "isButton": false
+    },
+    {
+      "name": "SUPPLIERCONTRACTREF",
+      "category": "Supplier Contract",
+      "description": "Supplier Contract reference",
+      "isButton": false
+    },
+    {
+      "name": "SUPPLIERCONTRACT_ENDDATE",
+      "category": "Supplier Contract",
+      "description": "Supplier Contract end date",
+      "isButton": false
+    },
+    {
+      "name": "SUPPLIERCONTRACT_MAINCONTACT",
+      "category": "Supplier Contract",
+      "description": "The main contact of the Supplier Contract",
+      "isButton": false
+    },
+    {
+      "name": "SUPPLIERCONTRACT_STARTDATE",
+      "category": "Supplier Contract",
+      "description": "Supplier Contract start date",
+      "isButton": false
+    },
+    {
+      "name": "SUPPLIERCONTRACT_SUPPLIERNAME",
+      "category": "Supplier Contract",
+      "description": "The Supplier of the Supplier Contract",
+      "isButton": false
+    },
+    {
+      "name": "SATISFACTIONWEBLINKTEXT",
+      "category": "Surveys",
+      "description": "Text shown in Email for web link to Satisfaction Survey",
+      "isButton": false
+    },
+    {
+      "name": "USERCONFIRMSATISFACTIONWEBLINKTEXT",
+      "category": "Surveys",
+      "description": "Text shown in Email for web link to Confirmation and Satisfaction Survey",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTMANAGER",
+      "category": "Tenant",
+      "description": "The account manager of the user",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTMANAGEREMAIL",
+      "category": "Tenant",
+      "description": "The email address of the account manager of the user",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTMANAGERFIRSTNAME",
+      "category": "Tenant",
+      "description": "The first name of the account manager of the user",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTMANAGERLASTNAME",
+      "category": "Tenant",
+      "description": "The last name of the account manager of the user",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTMANAGERPHONE",
+      "category": "Tenant",
+      "description": "The phone number of the account manager of the user",
+      "isButton": false
+    },
+    {
+      "name": "ACCOUNTMANAGERTITLE",
+      "category": "Tenant",
+      "description": "The job title of the account manager of the user",
+      "isButton": false
+    },
+    {
+      "name": "LINKTOWEBAPP",
+      "category": "Tenant",
+      "description": "The URL of the Agent application",
+      "isButton": false
+    },
+    {
+      "name": "ORADDRESS",
+      "category": "Tenant",
+      "description": "Tenant - Address",
+      "isButton": false
+    },
+    {
+      "name": "ORADDRESS1",
+      "category": "Tenant",
+      "description": "Tenant - Address Line 1",
+      "isButton": false
+    },
+    {
+      "name": "ORADDRESS2",
+      "category": "Tenant",
+      "description": "Tenant - Address Line 2",
+      "isButton": false
+    },
+    {
+      "name": "ORADDRESS3",
+      "category": "Tenant",
+      "description": "Tenant - Address Line 3",
+      "isButton": false
+    },
+    {
+      "name": "ORADDRESS4",
+      "category": "Tenant",
+      "description": "Tenant - Address Line 4",
+      "isButton": false
+    },
+    {
+      "name": "ORADDRESS5",
+      "category": "Tenant",
+      "description": "Tenant - Post/ZIP Code",
+      "isButton": false
+    },
+    {
+      "name": "ORBANKDETAILS1",
+      "category": "Tenant",
+      "description": "Bank Details Line 1",
+      "isButton": false
+    },
+    {
+      "name": "ORBANKDETAILS2",
+      "category": "Tenant",
+      "description": "Tenant Name",
+      "isButton": false
+    },
+    {
+      "name": "ORBANKDETAILS3",
+      "category": "Tenant",
+      "description": "Enter a name for this Tenant here",
+      "isButton": false
+    },
+    {
+      "name": "ORBANKDETAILS4",
+      "category": "Tenant",
+      "description": "Tenant Code",
+      "isButton": false
+    },
+    {
+      "name": "ORBANKDETAILS5",
+      "category": "Tenant",
+      "description": "Active",
+      "isButton": false
+    },
+    {
+      "name": "ORCOLOUR",
+      "category": "Tenant",
+      "description": "The portal colour for the Tenant",
+      "isButton": false
+    },
+    {
+      "name": "OREMAIL",
+      "category": "Tenant",
+      "description": "Tenant - Email Address",
+      "isButton": false
+    },
+    {
+      "name": "ORLOGO",
+      "category": "Tenant",
+      "description": "Tenant - Logo",
+      "isButton": false
+    },
+    {
+      "name": "ORLOGOSRC",
+      "category": "Tenant",
+      "description": "Tenant - Logo Source",
+      "isButton": false
+    },
+    {
+      "name": "ORNAME",
+      "category": "Tenant",
+      "description": "Tenant Name",
+      "isButton": false
+    },
+    {
+      "name": "ORPHONE",
+      "category": "Tenant",
+      "description": "Tenant - Phone Number",
+      "isButton": false
+    },
+    {
+      "name": "ORTAXNUMBER",
+      "category": "Tenant",
+      "description": "Can be selected",
+      "isButton": false
+    },
+    {
+      "name": "ORTEXTCOLOUR",
+      "category": "Tenant",
+      "description": "The portal text colour for the Tenant",
+      "isButton": false
+    },
+    {
+      "name": "ORWEBSITE",
+      "category": "Tenant",
+      "description": "Tenant - Web site",
+      "isButton": false
+    },
+    {
+      "name": "AGENTID",
+      "category": "Ticket",
+      "description": "The ID of the assigned Agent of the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "AGENTSIGNAME",
+      "category": "Ticket",
+      "description": "Prints the Name that was entered on the action level field Agent Signature used for signing",
+      "isButton": false
+    },
+    {
+      "name": "AGENTSIGNATURE",
+      "category": "Ticket",
+      "description": "Prints the action level field Agent Signature used for signing",
+      "isButton": false
+    },
+    {
+      "name": "AIACKNOWLEDGEMENT",
+      "category": "Ticket",
+      "description": "AI Acknowledgement Email",
+      "isButton": false
+    },
+    {
+      "name": "AICONVERSATIONSUMMARY",
+      "category": "Ticket",
+      "description": "The current Ticket conversation summarised by AI.",
+      "isButton": false
+    },
+    {
+      "name": "AIGENERATEDSUMMARY",
+      "category": "Ticket",
+      "description": "The User's message summarised by AI.",
+      "isButton": false
+    },
+    {
+      "name": "AISATISFACTIONLEVEL",
+      "category": "Ticket",
+      "description": "The satisfaction level of the User calculated by AI.",
+      "isButton": false
+    },
+    {
+      "name": "AISENTIMENTANALYSIS",
+      "category": "Ticket",
+      "description": "he emotion of the User's messages calculated by AI.",
+      "isButton": false
+    },
+    {
+      "name": "AISUGGESTEDCATEGORY",
+      "category": "Ticket",
+      "description": "The Ticket Category suggested by AI.",
+      "isButton": false
+    },
+    {
+      "name": "AISUGGESTEDPRIORITY",
+      "category": "Ticket",
+      "description": "The Ticket priority suggested by AI.",
+      "isButton": false
+    },
+    {
+      "name": "AISUGGESTEDRESOLUTION",
+      "category": "Ticket",
+      "description": "The suggested resolution based on AI analysis of similar Tickets.",
+      "isButton": false
+    },
+    {
+      "name": "AISUGGESTEDTYPE",
+      "category": "Ticket",
+      "description": "The Ticket Type suggested by AI.",
+      "isButton": false
+    },
+    {
+      "name": "AITONALITY",
+      "category": "Ticket",
+      "description": "The tone of the User calculated by AI.",
+      "isButton": false
+    },
+    {
+      "name": "ALLACTIONS",
+      "category": "Ticket",
+      "description": "A table containing all previous public Actions (private Actions included when used on Agent update template).",
+      "isButton": false
+    },
+    {
+      "name": "ALLACTIONSONLYPRIVATE",
+      "category": "Ticket",
+      "description": "A table containing all previous private Actions (excluding system Actions)",
+      "isButton": false
+    },
+    {
+      "name": "ALLACTIONSPRIVATE",
+      "category": "Ticket",
+      "description": "A table containing all previous Actions (including all private Actions).",
+      "isButton": false
+    },
+    {
+      "name": "ALLASSETS",
+      "category": "Ticket",
+      "description": "All assets of the ticket",
+      "isButton": false
+    },
+    {
+      "name": "ALLFIELDS",
+      "category": "Ticket",
+      "description": "Listing of all Field Values for Ticket",
+      "isButton": false
+    },
+    {
+      "name": "ALLFIELDSCARD",
+      "category": "Ticket",
+      "description": "A styled table containing all field values for a Ticket",
+      "isButton": false
+    },
+    {
+      "name": "ALLFIELDSCF",
+      "category": "Ticket",
+      "description": "All custom Fields",
+      "isButton": false
+    },
+    {
+      "name": "ALLFIELDSCFCARD",
+      "category": "Ticket",
+      "description": "A styled table containing all Custom Field values for a Ticket",
+      "isButton": false
+    },
+    {
+      "name": "ALLFIELDSCFQA",
+      "category": "Ticket",
+      "description": "Listing of all Custom Field Values for Ticket in a question-answer format",
+      "isButton": false
+    },
+    {
+      "name": "ALLFIELDSQA",
+      "category": "Ticket",
+      "description": "Listing of all Field Values for Ticket in a question-answer format",
+      "isButton": false
+    },
+    {
+      "name": "ALLNONSYSACTIONS",
+      "category": "Ticket",
+      "description": "A Table Containing All Previous Public, Non-System Actions",
+      "isButton": false
+    },
+    {
+      "name": "APPOINTMENTBOOKING",
+      "category": "Ticket",
+      "description": "Used to create a link to Resource Booking from the self service portal",
+      "isButton": false
+    },
+    {
+      "name": "APPOINTMENTBOOKINGFORSENDER",
+      "category": "Ticket",
+      "description": "Used to create a link to Resource Booking for the active Agent from the self service portal",
+      "isButton": false
+    },
+    {
+      "name": "APPROVERNAMES",
+      "category": "Ticket",
+      "description": "A comma-separated list of Users/Agents who have approved the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "ARTICLEDESCRIPTION",
+      "category": "Ticket",
+      "description": "The description of the knowledge base Article created from the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "ARTICLENOTES",
+      "category": "Ticket",
+      "description": "The notes of the knowledge base Article created from the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "ARTICLERESOLUTION",
+      "category": "Ticket",
+      "description": "The resolution of the knowledge base Article created from the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "ASSETSITE",
+      "category": "Ticket",
+      "description": "Site",
+      "isButton": false
+    },
+    {
+      "name": "ASSETTYPE",
+      "category": "Ticket",
+      "description": "The asset type of the ticket's primary asset",
+      "isButton": false
+    },
+    {
+      "name": "AZUREDEVOPSWORKITEMS",
+      "category": "Ticket",
+      "description": "A table listing all linked Azure DevOps Work Items",
+      "isButton": false
+    },
+    {
+      "name": "BESTARTICLEMATCHES",
+      "category": "Ticket",
+      "description": "AI Matched Articles for the current Ticket as a table.",
+      "isButton": false
+    },
+    {
+      "name": "BESTARTICLEMATCHESJSON",
+      "category": "Ticket",
+      "description": "AI Matched Articles for the current Ticket as a JSON string, including Articles details.",
+      "isButton": false
+    },
+    {
+      "name": "BESTEMBEDDINGMATCHES",
+      "category": "Ticket",
+      "description": "Best Embedding Score from the OpenAI Integration",
+      "isButton": false
+    },
+    {
+      "name": "BESTEMBEDDINGMATCHESJSON",
+      "category": "Ticket",
+      "description": "AI Matched Tickets for the current Ticket as a JSON string, including AI conversation summary and details.",
+      "isButton": false
+    },
+    {
+      "name": "BILLINGADDRESS",
+      "category": "Ticket",
+      "description": "Shows the Tickets billing address.",
+      "isButton": false
+    },
+    {
+      "name": "BRANCH",
+      "category": "Ticket",
+      "description": "The branch of the GitHub pull request linked to the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "CANNEDTEXT{id}",
+      "category": "Ticket",
+      "description": "Inserts canned text, where ID is the ID of the canned text",
+      "isButton": false
+    },
+    {
+      "name": "CATEGORY2",
+      "category": "Ticket",
+      "description": "Category",
+      "isButton": false
+    },
+    {
+      "name": "CATEGORY3",
+      "category": "Ticket",
+      "description": "Closure Code",
+      "isButton": false
+    },
+    {
+      "name": "CATEGORY4",
+      "category": "Ticket",
+      "description": "Change Closure Code",
+      "isButton": false
+    },
+    {
+      "name": "CATEGORY5",
+      "category": "Ticket",
+      "description": "HR Category",
+      "isButton": false
+    },
+    {
+      "name": "CHARGEHOURS",
+      "category": "Ticket",
+      "description": "Total Billable Time for the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "CHATTRANSCRIPT",
+      "category": "Ticket",
+      "description": "Live Chat Transcript",
+      "isButton": false
+    },
+    {
+      "name": "CHILDIDS",
+      "category": "Ticket",
+      "description": "The ID(s) of the child Tickets",
+      "isButton": false
+    },
+    {
+      "name": "CHILDTICKETSTABLE",
+      "category": "Ticket",
+      "description": "A table of a Ticket's child Tickets, using the column profile specified in Ticket settings.",
+      "isButton": false
+    },
+    {
+      "name": "CLEARANCE",
+      "category": "Ticket",
+      "description": "Note Added at Closure",
+      "isButton": false
+    },
+    {
+      "name": "CLEARTIME",
+      "category": "Ticket",
+      "description": "Time Taken to Close Ticket",
+      "isButton": false
+    },
+    {
+      "name": "CONFIRMCLOSURE",
+      "category": "Ticket",
+      "description": "Link to confirm closure of Ticket",
+      "isButton": false
+    },
+    {
+      "name": "CONFIRMCLOSUREWITHFEEDBACK",
+      "category": "Ticket",
+      "description": "Link to confirm closure of Ticket with feedback",
+      "isButton": false
+    },
+    {
+      "name": "CONFIRMFEEDBACK1-10",
+      "category": "Ticket",
+      "description": "Used on Email Templates to create feedback URL links that will only submit feedback once confirmed on the page. Can be numbered from 1 to 10, e.g. $FEEDBACK1",
+      "isButton": false
+    },
+    {
+      "name": "CONTRACTHOURSREMAINING",
+      "category": "Ticket",
+      "description": "Displays the hours remaining left on each contract associated with the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "CONTRIBUTORS",
+      "category": "Ticket",
+      "description": "A table of all the contributors linked to the Ticket.",
+      "isButton": false
+    },
+    {
+      "name": "COSTTOTAL",
+      "category": "Ticket",
+      "description": "The quantitiy multiplied by the cost of the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "CREATEDBY",
+      "category": "Ticket",
+      "description": "Who created the knowledge base Article created from the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "CURRENCY",
+      "category": "Ticket",
+      "description": "The currency used for monetary values for the Ticket.",
+      "isButton": false
+    },
+    {
+      "name": "CURRENTDATE",
+      "category": "Ticket",
+      "description": "The current date",
+      "isButton": false
+    },
+    {
+      "name": "CURRENTELAPSEDHRS",
+      "category": "Ticket",
+      "description": "Working hours since the Ticket was opened",
+      "isButton": false
+    },
+    {
+      "name": "CUSTOMERID",
+      "category": "Ticket",
+      "description": "The unique ID of the Organisation in HaloITSM",
+      "isButton": false
+    },
+    {
+      "name": "CUSTOMERREF",
+      "category": "Ticket",
+      "description": "The reference of the Organisation linked to the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "CUSTOMERSIGNAME",
+      "category": "Ticket",
+      "description": "Prints the Name that was entered on the Customer Signature field",
+      "isButton": false
+    },
+    {
+      "name": "CUSTOMERSIGNATURE",
+      "category": "Ticket",
+      "description": "Prints the Customer Signature field",
+      "isButton": false
+    },
+    {
+      "name": "DATECLEARED{}",
+      "category": "Ticket",
+      "description": "Date Closed",
+      "isButton": false
+    },
+    {
+      "name": "DATECREATED{}",
+      "category": "Ticket",
+      "description": "Date Ticket Created",
+      "isButton": false
+    },
+    {
+      "name": "DATEOCCURED{}",
+      "category": "Ticket",
+      "description": "Date Reported",
+      "isButton": false
+    },
+    {
+      "name": "DATEREPORTED{}",
+      "category": "Ticket",
+      "description": "Date Reported",
+      "isButton": false
+    },
+    {
+      "name": "DEADLINEDATE",
+      "category": "Ticket",
+      "description": "The deadline field date",
+      "isButton": false
+    },
+    {
+      "name": "DELIVERYADDRESS",
+      "category": "Ticket",
+      "description": "Shows the Tickets delivery address.",
+      "isButton": false
+    },
+    {
+      "name": "DENYCLOSURE",
+      "category": "Ticket",
+      "description": "Link to reopen Ticket",
+      "isButton": false
+    },
+    {
+      "name": "ELAPSEDHRS",
+      "category": "Ticket",
+      "description": "Time in Working Hours Between Date Opened and Date Closed",
+      "isButton": false
+    },
+    {
+      "name": "EMAILCCLIST",
+      "category": "Ticket",
+      "description": "Email Cc List",
+      "isButton": false
+    },
+    {
+      "name": "EMAILHISTORY",
+      "category": "Ticket",
+      "description": "Copy of entire Email history - this can be overloaded using curly braces at the end {number} to get a specific number of e-mails, if used, it will always include the first action on the ticket even if not in range. The Email history elements have their own HTML classes and can be styled. Classes: emailhistory_from, emailhistory_sent, emailhistory_to, emailhistory_cc, emailhistory_subject\"",
+      "isButton": false
+    },
+    {
+      "name": "EMAILTOLIST",
+      "category": "Ticket",
+      "description": "Email To List",
+      "isButton": false
+    },
+    {
+      "name": "ESTIMATE",
+      "category": "Ticket",
+      "description": "Estimate of Time Needed to Resolve the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "FAULTCOST",
+      "category": "Ticket",
+      "description": "The cost of the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "FAULTID",
+      "category": "Ticket",
+      "description": "Ticket ID:",
+      "isButton": false
+    },
+    {
+      "name": "FAULTQUANTITY",
+      "category": "Ticket",
+      "description": "The quantitiy of the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "FDELIVERYCONTACT",
+      "category": "Ticket",
+      "description": "Delivery Contact",
+      "isButton": false
+    },
+    {
+      "name": "FEEDBACK1-10",
+      "category": "Ticket",
+      "description": "Used on Email Templates to create feedback URL links. Can be numbered from 1 to 10, e.g. $FEEDBACK1",
+      "isButton": false
+    },
+    {
+      "name": "FIRSTNAME",
+      "category": "Ticket",
+      "description": "First Name",
+      "isButton": false
+    },
+    {
+      "name": "FOLLOWERS",
+      "category": "Ticket",
+      "description": "Prints the followers of the ticket",
+      "isButton": false
+    },
+    {
+      "name": "FOLLOWUPDATE",
+      "category": "Ticket",
+      "description": "Follow-Up Date",
+      "isButton": false
+    },
+    {
+      "name": "HELPDESKURL",
+      "category": "Ticket",
+      "description": "Web portal URL",
+      "isButton": false
+    },
+    {
+      "name": "IS_IN_MAINTENANCE_WINDOW",
+      "category": "Ticket",
+      "description": "Is In Maintenance Window",
+      "isButton": false
+    },
+    {
+      "name": "JIRAISSUES",
+      "category": "Ticket",
+      "description": "A table listing all linked Jira Issues",
+      "isButton": false
+    },
+    {
+      "name": "LASTACTION",
+      "category": "Ticket",
+      "description": "The last public note/action added by an Agent",
+      "isButton": false
+    },
+    {
+      "name": "LASTAGENTACTIONDATE",
+      "category": "Ticket",
+      "description": "The date of the last public note/action added by an Agent",
+      "isButton": false
+    },
+    {
+      "name": "LASTAGENTACTIONWHO",
+      "category": "Ticket",
+      "description": "The name of the Agent that added the last public note/action",
+      "isButton": false
+    },
+    {
+      "name": "LASTNAME",
+      "category": "Ticket",
+      "description": "Surname",
+      "isButton": false
+    },
+    {
+      "name": "LINKTOREQUESTAGENT",
+      "category": "Ticket",
+      "description": "A link to the Ticket on the Agent Application.",
+      "isButton": false
+    },
+    {
+      "name": "LINKTOREQUESTUSER",
+      "category": "Ticket",
+      "description": "A link to the Ticket on the User Portal.",
+      "isButton": false
+    },
+    {
+      "name": "LINKTOUSERACTIONLOGGEDIN{id}",
+      "category": "Ticket",
+      "description": "A link to perform a user action and force the user to log in, where ID is the ID of the action",
+      "isButton": false
+    },
+    {
+      "name": "LINKTOUSERACTION{id}",
+      "category": "Ticket",
+      "description": "A link to perform a user action, where ID is the ID of the action",
+      "isButton": false
+    },
+    {
+      "name": "LOCKERCODE",
+      "category": "Ticket",
+      "description": "The code for a Drop Off or Collection locker",
+      "isButton": false
+    },
+    {
+      "name": "LOCKERNAME",
+      "category": "Ticket",
+      "description": "The location of a Drop Off or Collection locker",
+      "isButton": false
+    },
+    {
+      "name": "MERGEDREQUESTID",
+      "category": "Ticket",
+      "description": "Ticket ID of ''merged to'' Ticket",
+      "isButton": false
+    },
+    {
+      "name": "MICROSOFTTEAMSCHATS",
+      "category": "Ticket",
+      "description": "Links to the Microsoft Teams chats linked to the Ticket.",
+      "isButton": false
+    },
+    {
+      "name": "MICROSOFTTEAMSCONVERSATIONS",
+      "category": "Ticket",
+      "description": "A log of the conversations of all the Microsoft Teams chats linked to the Ticket.",
+      "isButton": false
+    },
+    {
+      "name": "ORIGINALSYMPTOM",
+      "category": "Ticket",
+      "description": "The summary of the Ticket before a Ticket Template was applied",
+      "isButton": false
+    },
+    {
+      "name": "ORIGINALSYMPTOM2",
+      "category": "Ticket",
+      "description": "The details of the Ticket before a Ticket Template was applied, formatted as HTML",
+      "isButton": false
+    },
+    {
+      "name": "PARENTID",
+      "category": "Ticket",
+      "description": "The ID of the parent Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PARENT_AREA",
+      "category": "Ticket",
+      "description": "The Organisation of the parent Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PARENT_FAULTID",
+      "category": "Ticket",
+      "description": "The ID of the parent Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PARENT_IMPACTLEVEL",
+      "category": "Ticket",
+      "description": "The impact of the parent Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PARENT_RISKLEVEL",
+      "category": "Ticket",
+      "description": "The risk of the parent Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PARENT_SITE",
+      "category": "Ticket",
+      "description": "The Site of the parent Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PARENT_SYMPTOM",
+      "category": "Ticket",
+      "description": "The summary of the parent Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PARENT_SYMPTOM2",
+      "category": "Ticket",
+      "description": "The details of the parent Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PARENT_USERNAME",
+      "category": "Ticket",
+      "description": "The username of the parent Ticket User",
+      "isButton": false
+    },
+    {
+      "name": "PLANNEDDATE{}",
+      "category": "Ticket",
+      "description": "Scheduled Date Planned to Progress the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PREPAYHOURS",
+      "category": "Ticket",
+      "description": "Total Pre-Pay Time used on the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PREPAYHOURSREMAINING",
+      "category": "Ticket",
+      "description": "Total Pre-Pay time remaining",
+      "isButton": false
+    },
+    {
+      "name": "PRODUCT",
+      "category": "Ticket",
+      "description": "The name of the product linked to the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PULLREQUESTID",
+      "category": "Ticket",
+      "description": "ID of the GitHub pull request linked to the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PULLREQUESTLINK",
+      "category": "Ticket",
+      "description": "Link to the GitHub pull request linked to the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "PURCHASEORDERNUMBER",
+      "category": "Ticket",
+      "description": "Purchase Order Number",
+      "isButton": false
+    },
+    {
+      "name": "RELATEDASSETSTABLE",
+      "category": "Ticket",
+      "description": "A table of all the Assets linked to the ticket, using the column profile specified in Ticket settings.",
+      "isButton": false
+    },
+    {
+      "name": "RELATEDBUSINESSAPPS",
+      "category": "Ticket",
+      "description": "Related Business Applications",
+      "isButton": false
+    },
+    {
+      "name": "RELATEDBUSINESSAPPS_DISPLAY",
+      "category": "Ticket",
+      "description": "Related business applications portal display name",
+      "isButton": false
+    },
+    {
+      "name": "RELATEDSERVICES",
+      "category": "Ticket",
+      "description": "Related Services",
+      "isButton": false
+    },
+    {
+      "name": "RELATEDSERVICES_DISPLAY",
+      "category": "Ticket",
+      "description": "Related Services portal display name",
+      "isButton": false
+    },
+    {
+      "name": "RELATEDTICKETIDS",
+      "category": "Ticket",
+      "description": "The ID of the related Tickets",
+      "isButton": false
+    },
+    {
+      "name": "REPORTEDBY",
+      "category": "Ticket",
+      "description": "Person Who Reported the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "REQUESTTYPE",
+      "category": "Ticket",
+      "description": "Ticket Type",
+      "isButton": false
+    },
+    {
+      "name": "RESOURCEBOOKINGTYPE",
+      "category": "Ticket",
+      "description": "The booking type used for resource booking",
+      "isButton": false
+    },
+    {
+      "name": "RESOURCETYPE",
+      "category": "Ticket",
+      "description": "The type of resource booked through resource booking",
+      "isButton": false
+    },
+    {
+      "name": "RESPONDBYDATE{}",
+      "category": "Ticket",
+      "description": "Target Respond By Date",
+      "isButton": false
+    },
+    {
+      "name": "RICHALLACTIONS",
+      "category": "Ticket",
+      "description": "A rich table containing all previous public actions (private actions included when used on agent update template)",
+      "isButton": false
+    },
+    {
+      "name": "RICHALLACTIONSONLYPRIVATE",
+      "category": "Ticket",
+      "description": "A rich table containing all previous private Actions (excluding system Actions)",
+      "isButton": false
+    },
+    {
+      "name": "RICHALLACTIONSPRIVATE",
+      "category": "Ticket",
+      "description": "A rich table containing all previous Actions (including all private Actions)",
+      "isButton": false
+    },
+    {
+      "name": "RISKDESCRIPTION",
+      "category": "Ticket",
+      "description": "Risk",
+      "isButton": false
+    },
+    {
+      "name": "RISKLEVEL",
+      "category": "Ticket",
+      "description": "Risk Level",
+      "isButton": false
+    },
+    {
+      "name": "ROUNDEDTICKETTIMETAKEN",
+      "category": "Ticket",
+      "description": "Total Time (Time Taken + Rounding) for the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "SATISFACTIONLEVEL",
+      "category": "Ticket",
+      "description": "The Ticket's feedback score",
+      "isButton": false
+    },
+    {
+      "name": "SECTION",
+      "category": "Ticket",
+      "description": "Team the Ticket Belongs to",
+      "isButton": false
+    },
+    {
+      "name": "SERVICESTATUSNOTE",
+      "category": "Ticket",
+      "description": "The Service Status note set on the Ticket when using Ticket driven Service Statuses",
+      "isButton": false
+    },
+    {
+      "name": "SLATIMELEFT",
+      "category": "Ticket",
+      "description": "SLA Time Left",
+      "isButton": false
+    },
+    {
+      "name": "STARTDATE",
+      "category": "Ticket",
+      "description": "Start Date",
+      "isButton": false
+    },
+    {
+      "name": "STARTDATETIME",
+      "category": "Ticket",
+      "description": "Start Date & Time",
+      "isButton": false
+    },
+    {
+      "name": "STARTDATETIME_WITH_TIMEZONE",
+      "category": "Ticket",
+      "description": "Start date & time with timezone",
+      "isButton": false
+    },
+    {
+      "name": "STARTTIME",
+      "category": "Ticket",
+      "description": "Start Time",
+      "isButton": false
+    },
+    {
+      "name": "STATUS",
+      "category": "Ticket",
+      "description": "Status",
+      "isButton": false
+    },
+    {
+      "name": "SUPPCLEAR{}",
+      "category": "Ticket",
+      "description": "Date Supplier Resolved Issue",
+      "isButton": false
+    },
+    {
+      "name": "SUPPDATE{}",
+      "category": "Ticket",
+      "description": "Date Ticket Logged to Supplier",
+      "isButton": false
+    },
+    {
+      "name": "SUPPEND",
+      "category": "Ticket",
+      "description": "Supplier Email End Tag",
+      "isButton": false
+    },
+    {
+      "name": "SUPPFIXBYDATE",
+      "category": "Ticket",
+      "description": "Date Supplier to Fix By",
+      "isButton": false
+    },
+    {
+      "name": "SUPPLIEREMAILHISTORY",
+      "category": "Ticket",
+      "description": "Copy of Email History between Agents and Suppliers - this can be overloaded using curly braces at the end {number} to get a specific number of emails. If used, it will always include the first action on the ticket even if not in range",
+      "isButton": false
+    },
+    {
+      "name": "SUPPREF",
+      "category": "Ticket",
+      "description": "Supplier Reference",
+      "isButton": false
+    },
+    {
+      "name": "SUPPRESPONDBYDATE",
+      "category": "Ticket",
+      "description": "Date Supplier to Respond By",
+      "isButton": false
+    },
+    {
+      "name": "SUPPSTART",
+      "category": "Ticket",
+      "description": "Supplier Email Start Tag",
+      "isButton": false
+    },
+    {
+      "name": "SYMPTOM",
+      "category": "Ticket",
+      "description": "Summary",
+      "isButton": false
+    },
+    {
+      "name": "SYMPTOM2",
+      "category": "Ticket",
+      "description": "Details",
+      "isButton": false
+    },
+    {
+      "name": "SYMPTOM2PLAIN",
+      "category": "Ticket",
+      "description": "Details (Showing as plain text instead)",
+      "isButton": false
+    },
+    {
+      "name": "TAKENBY",
+      "category": "Ticket",
+      "description": "The first Agent to respond to the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "TARGETDATE",
+      "category": "Ticket",
+      "description": "Target Date",
+      "isButton": false
+    },
+    {
+      "name": "TARGETDATETIME",
+      "category": "Ticket",
+      "description": "Target Date & Time",
+      "isButton": false
+    },
+    {
+      "name": "TARGETDATETIME_WITH_TIMEZONE",
+      "category": "Ticket",
+      "description": "Target date & time with timezone",
+      "isButton": false
+    },
+    {
+      "name": "TARGETTIME",
+      "category": "Ticket",
+      "description": "Target Time",
+      "isButton": false
+    },
+    {
+      "name": "TEAMALTERNATIVENAME",
+      "category": "Ticket",
+      "description": "Alternative Team name that the Ticket belongs to",
+      "isButton": false
+    },
+    {
+      "name": "TEAMEMAIL",
+      "category": "Ticket",
+      "description": "Team email address that the Ticket belongs to",
+      "isButton": false
+    },
+    {
+      "name": "TEAMLOGO",
+      "category": "Ticket",
+      "description": "The logo of the Team the Ticket as assigned to",
+      "isButton": false
+    },
+    {
+      "name": "TEAMLOGOSRC",
+      "category": "Ticket",
+      "description": "The source logo of the Team the Ticket is assigned to",
+      "isButton": false
+    },
+    {
+      "name": "TEAMPHONENUMBER",
+      "category": "Ticket",
+      "description": "Team phone number that the Ticket belongs to",
+      "isButton": false
+    },
+    {
+      "name": "TEMPLATENAME",
+      "category": "Ticket",
+      "description": "The name of the template for the Tickets",
+      "isButton": false
+    },
+    {
+      "name": "TICKETCHARGERATE",
+      "category": "Ticket",
+      "description": "The charge rate associated with the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "TICKETGUID",
+      "category": "Ticket",
+      "description": "The Tickets GUID",
+      "isButton": false
+    },
+    {
+      "name": "TIMETAKEN",
+      "category": "Ticket",
+      "description": "The total number of hours spent on the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "TOTALCHARGEANDTRAVELHOURS",
+      "category": "Ticket",
+      "description": "Total Charge and Travel Hours",
+      "isButton": false
+    },
+    {
+      "name": "TOTALTRAVELTIME",
+      "category": "Ticket",
+      "description": "Total Travel Hours Logged Against the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "USERCONFIRMEMAILTEXT",
+      "category": "Ticket",
+      "description": "User Confirmation Email text",
+      "isButton": false
+    },
+    {
+      "name": "USERCONFIRMWEBLINKTEXT",
+      "category": "Ticket",
+      "description": "Text shown in Email for web link to User Confirmation Page",
+      "isButton": false
+    },
+    {
+      "name": "USERID",
+      "category": "Ticket",
+      "description": "The ID of the User of the Ticket",
+      "isButton": false
+    },
+    {
+      "name": "WAITTIME",
+      "category": "Ticket",
+      "description": "The average wait time in hours and minutes for Tickets of the same type to be responded to or resolved",
+      "isButton": false
+    },
+    {
+      "name": "WORKFLOWPROGRESS",
+      "category": "Ticket",
+      "description": "The Ticket's workflow progress using the chevron view",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONAVATAR",
+      "category": "Ticket Print",
+      "description": "Avatar of who did the action",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONLIST",
+      "category": "Ticket Print",
+      "description": "Prints each action that is visible to the end user",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONLISTCONV",
+      "category": "Ticket Print",
+      "description": "Prints actions (Conversation)",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONLISTCONVINTERNAL",
+      "category": "Ticket Print",
+      "description": "Prints actions (Conversation & Internal)",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONLISTCONVINTERNALPRIVATE",
+      "category": "Ticket Print",
+      "description": "Prints actions (Conversation & Internal) (Includes private actions)",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONLISTCONVPRIVATE",
+      "category": "Ticket Print",
+      "description": "Prints actions (Conversation) (Includes private actions)",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONLISTPRIVATE",
+      "category": "Ticket Print",
+      "description": "Prints actions (Includes private actions)",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONLISTSUPPLIER",
+      "category": "Ticket Print",
+      "description": "Prints actions (Supplier)",
+      "isButton": false
+    },
+    {
+      "name": "ACTIONTIMESUMMARY",
+      "category": "Ticket Print",
+      "description": "Action level summary of time logged",
+      "isButton": false
+    },
+    {
+      "name": "TIMESHEETAPPROVALDATE",
+      "category": "Timesheet",
+      "description": "The date the timesheet was approved or rejected",
+      "isButton": false
+    },
+    {
+      "name": "TIMESHEETDATE",
+      "category": "Timesheet",
+      "description": "The date the timesheet entry is for",
+      "isButton": false
+    },
+    {
+      "name": "AZUREOID",
+      "category": "User Buttons",
+      "description": "The Azure Active Directory ID of the User",
+      "isButton": true
+    },
+    {
+      "name": "SITE_ID",
+      "category": "User Buttons",
+      "description": "The unique ID of the Site in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "SITE_NAME",
+      "category": "User Buttons",
+      "description": "The name of the Site in HaloITSM",
+      "isButton": true
+    },
+    {
+      "name": "THIRD_PARTY_ID",
+      "category": "User Buttons",
+      "description": "The ACT ID of the User",
+      "isButton": true
+    },
+    {
+      "name": "INVADDRESS",
+      "category": "User details",
+      "description": "Invoice address as one variable",
+      "isButton": false
+    },
+    {
+      "name": "NETWORKLOGIN",
+      "category": "User details",
+      "description": "Network Login",
+      "isButton": false
+    },
+    {
+      "name": "TITLE",
+      "category": "User details",
+      "description": "Title",
+      "isButton": false
+    },
+    {
+      "name": "USERADDRESS",
+      "category": "User details",
+      "description": "The End-Users primary address",
+      "isButton": false
+    },
+    {
+      "name": "USEREMAILADDRESS",
+      "category": "User details",
+      "description": "For Emails to Users - email address",
+      "isButton": false
+    },
+    {
+      "name": "USEREMAILADDRESS2",
+      "category": "User details",
+      "description": "For Emails to Users - email address 2",
+      "isButton": false
+    },
+    {
+      "name": "USEREMAILADDRESS3",
+      "category": "User details",
+      "description": "For Emails to Users - email address 3",
+      "isButton": false
+    },
+    {
+      "name": "USERNAME",
+      "category": "User details",
+      "description": "User Name",
+      "isButton": false
+    },
+    {
+      "name": "USEROTHER1",
+      "category": "User details",
+      "description": "User Department",
+      "isButton": false
+    },
+    {
+      "name": "USEROTHER2",
+      "category": "User details",
+      "description": "User Job Title",
+      "isButton": false
+    },
+    {
+      "name": "USEROTHER3",
+      "category": "User details",
+      "description": "User Reports To",
+      "isButton": false
+    },
+    {
+      "name": "USEROTHER4",
+      "category": "User details",
+      "description": "User Working Hours",
+      "isButton": false
+    },
+    {
+      "name": "USEROTHER5",
+      "category": "User details",
+      "description": "User Additional Info",
+      "isButton": false
+    },
+    {
+      "name": "USERPHONENUMBER",
+      "category": "User details",
+      "description": "The End-Users phone number",
+      "isButton": false
+    }
+  ]
+}

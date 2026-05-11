@@ -21,6 +21,9 @@
     shortcuts: [],
     customCommands: [],
     recentCommands: [],
+    commandHistory: [],
+    historyIndex: -1,
+    historyDraft: '',
     ticketTypeCommands: [],
     ticketTypeSearchMap: {},
     schemaColumnCache: {},
@@ -29,10 +32,18 @@
     ticket360TicketId: 0,
     timelineTicketId: 0,
     theme: 'light',
-    settings: { auto360: false, drawer360Push: false, hideHaloSidebar: false },
+    settings: { auto360: true, drawer360Push: false, hideHaloSidebar: false, ticket360Enabled: true, doubleClickTechFields: true },
     palette: { placement: 'mid', fontScale: 1 },
+    review: { firstActiveAt: 0, dismissed: false, snoozeUntil: 0 },
+    configTree: {},
+    configDiscoveryInFlight: new Set(),
+    configWarmupProgress: { current: 0, total: 0, sectionLabel: '' },
     _hidHaloMenu: false
   };
+
+  const REVIEW_DELAY_MS = 5 * 24 * 60 * 60 * 1000;
+  const REVIEW_SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
+  const REVIEW_URL = 'https://chromewebstore.google.com/detail/haloplus/ondioamcpkphlebmeocbhjmpdodpmklp/reviews';
 
   const ROUTES = {
     ticket:   { list: '/tickets?area=1',             detail: id => `/tickets?id=${encodeURIComponent(id)}` },
@@ -236,6 +247,43 @@
     team: { commandId: 'team', kind: 'Team', route: 'team', table: 'sectiondetail', id: 'SDid', title: 'SDSectionName', sub: 'SDDepartmentid', searchCols: ['SDSectionName'] },
     rep: { commandId: 'rep', kind: 'Report', route: 'report', table: 'report', id: 'rid', title: 'rname', sub: 'rdesc', searchCols: ['rname', 'rdesc'] }
   });
+
+  const CONFIG_SECTIONS = [
+    { label: 'All Features',               slug: 'home',              keywords: ['all', 'features', 'home'] },
+    { label: 'Tenant',                     slug: 'organisation',      keywords: ['tenant', 'organisation', 'organization'] },
+    { label: 'Teams & Agents',             slug: 'agents',            keywords: ['teams', 'agents', 'team', 'agent'] },
+    { label: 'Users',                      slug: 'users',             keywords: ['users', 'user', 'end-users', 'end users'] },
+    { label: 'Email',                      slug: 'email',             keywords: ['email', 'mail', 'mailbox'] },
+    { label: 'Tickets',                    slug: 'tickets',           keywords: ['tickets', 'ticket', 'incidents', 'requests', 'requesttype', 'ticket types'] },
+    { label: 'AI',                         slug: 'ai',                keywords: ['ai', 'artificial intelligence', 'gpt'] },
+    { label: 'Asset Management',           slug: 'assets',            keywords: ['assets', 'asset', 'cmdb', 'devices'] },
+    { label: 'Calendars and Appointments', slug: 'calendar',          keywords: ['calendar', 'calendars', 'appointments', 'appointment'] },
+    { label: 'Call Management',            slug: 'call',              keywords: ['call', 'calls', 'phone', 'voip'] },
+    { label: 'Chat',                       slug: 'chat',              keywords: ['chat', 'messaging'] },
+    { label: 'Contracts',                  slug: 'contracts',         keywords: ['contracts', 'contract'] },
+    { label: 'Document Management',        slug: 'documents',         keywords: ['documents', 'document', 'docs'] },
+    { label: 'Forecasting',                slug: 'forecasting',       keywords: ['forecasting', 'forecast', 'opportunities', 'opps'] },
+    { label: 'Event Management',           slug: 'eventmanagement',   keywords: ['events', 'event', 'event management'] },
+    { label: 'Knowledge Base',             slug: 'kb',                keywords: ['knowledge', 'kb', 'articles', 'faq'] },
+    { label: 'Items and Stock Control',    slug: 'items',             keywords: ['items', 'item', 'stock', 'inventory'] },
+    { label: 'Notifications',              slug: 'notifications',     keywords: ['notifications', 'notification', 'alerts'] },
+    { label: 'Project Management',         slug: 'projects',          keywords: ['projects', 'project', 'pm'] },
+    { label: 'Purchase Orders',            slug: 'purchaseorders',    keywords: ['purchase', 'orders', 'po', 'purchases', 'purchase orders'] },
+    { label: 'Reporting',                  slug: 'reports',           keywords: ['reports', 'reporting', 'report'] },
+    { label: 'Self Service Portal',        slug: 'selfservice',       keywords: ['self service', 'portal', 'ssp', 'self-service'] },
+    { label: 'Services',                   slug: 'services',          keywords: ['services', 'service'] },
+    { label: 'Service Level Agreements',   slug: 'sla',               keywords: ['sla', 'slas', 'service level'] },
+    { label: 'Software Releases',          slug: 'software',          keywords: ['software', 'releases', 'release'] },
+    { label: 'Suppliers',                  slug: 'suppliers',         keywords: ['suppliers', 'supplier', 'vendors'] },
+    { label: 'Supplier Contracts',         slug: 'suppliercontracts', keywords: ['supplier contracts', 'vendor contracts'] },
+    { label: 'Time Management',            slug: 'time',              keywords: ['time', 'timesheet', 'timesheets', 'time management'] },
+    { label: 'Language',                   slug: 'language',          keywords: ['language', 'languages', 'i18n', 'translations'] },
+    { label: 'Custom Objects',             slug: 'custom',            keywords: ['custom', 'fields', 'objects', 'custom objects', 'custom fields'] },
+    { label: 'Integrations',               slug: 'integrations',      keywords: ['integrations', 'integration', 'api', 'connectors'] },
+    { label: 'Migrations',                 slug: 'migrations',        keywords: ['migrations', 'migration', 'import', 'imports'] },
+    { label: 'Advanced Settings',          slug: 'advanced',          keywords: ['advanced', 'advanced settings', 'database', 'audit'] }
+  ];
+
   function command(id, title, subtitle, run, keywords = [], kind = '') {
     return { id, title, subtitle, run, keywords, type: 'command', kind };
   }
@@ -284,10 +332,10 @@
     else if (url.includes('haloitsm')) context.platform = 'haloitsm';
     else if (url.includes('haloservicedesk')) context.platform = 'haloitsm';
 
-    if (url.includes('/report')) context.page = 'report';
+    if (url.includes('/config')) context.page = 'configuration';
+    else if (url.includes('/report')) context.page = 'report';
     else if (url.includes('/lookup') || url.includes('lookup')) context.page = 'lookup';
     else if (url.includes('/ticket') || url.includes('/fault')) context.page = 'ticket';
-    else if (url.includes('/config')) context.page = 'configuration';
     else if (url.includes('/asset') || url.includes('/device')) context.page = 'asset';
     else if (url.includes('/customer') || url.includes('/area')) context.page = 'organisation';
     else if (url.includes('/agent') || url.includes('/uname')) context.page = 'agent';
@@ -764,6 +812,48 @@ FROM (
       .hu-palette:hover .hu-palette-tools,
       .hu-palette-tools:focus-within { opacity: 1; pointer-events: auto; }
       .hu-palette-input { padding-right: 200px; }
+      .hu-spinner {
+        display: inline-block; width: 11px; height: 11px;
+        border: 2px solid currentColor; border-top-color: transparent;
+        border-radius: 50%; vertical-align: -1px;
+        animation: hu-spin 0.7s linear infinite;
+      }
+      @keyframes hu-spin { to { transform: rotate(360deg); } }
+      .hu-palette-discovery {
+        position: absolute; bottom: 8px; right: 12px;
+        display: inline-flex; align-items: center; gap: 7px;
+        font-size: 11px; line-height: 1; color: #475066;
+        padding: 5px 11px; background: rgba(255,255,255,0.96);
+        border: 1px solid #e3e7ef; border-radius: 999px;
+        pointer-events: none; z-index: 3;
+        box-shadow: 0 1px 4px rgba(8,16,30,0.05);
+        max-width: 60%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      html.hu-theme-dark .hu-palette-discovery {
+        background: rgba(23,27,34,0.96); border-color: #303744; color: #c7cedb;
+      }
+      .hu-palette-review {
+        display: flex; align-items: center; gap: 8px;
+        padding: 9px 14px; background: #fff7ee;
+        border-bottom: 1px solid #f4dcb5; color: #8a4b00;
+        font-size: 12.5px;
+      }
+      .hu-palette-review-text { flex: 1; min-width: 0; }
+      .hu-palette-review-btn {
+        height: 24px; padding: 0 10px; font-size: 11px; font-weight: 600;
+        border: 1px solid #e6c39a; background: #fff; color: #8a4b00;
+        border-radius: 4px; cursor: pointer;
+      }
+      .hu-palette-review-btn:hover { background: #ffe9cd; }
+      .hu-palette-review-go { background: #ff9b51; border-color: #ff9b51; color: #fff; }
+      .hu-palette-review-go:hover { background: #ff8a35; border-color: #ff8a35; color: #fff; }
+      .hu-palette-review-no { color: #94684a; }
+      .hu-palette.hu-has-review .hu-palette-tools { display: none; }
+      html.hu-theme-dark .hu-palette-review { background: #2a1f12; border-color: #4a3520; color: #f0c89a; }
+      html.hu-theme-dark .hu-palette-review-btn { background: #1f1810; border-color: #4a3520; color: #f0c89a; }
+      html.hu-theme-dark .hu-palette-review-btn:hover { background: #2f2418; }
+      html.hu-theme-dark .hu-palette-review-go { background: #ff9b51; border-color: #ff9b51; color: #1a1208; }
+      html.hu-theme-dark .hu-palette-review-go:hover { background: #ff8a35; border-color: #ff8a35; color: #1a1208; }
       .hu-palette-tool {
         height: 26px; min-width: 28px; padding: 0 7px;
         border: 1px solid rgba(216, 221, 232, 0.85); background: rgba(255,255,255,0.95);
@@ -774,11 +864,17 @@ FROM (
       .hu-palette-tool:hover { background: #eef4ff; color: #172033; border-color: #b8d7ff; }
       .hu-palette-tool-pos { position: relative; padding: 0 7px; }
       .hu-palette-pos-menu {
-        position: absolute; top: 100%; right: 0; margin-top: 4px;
+        position: absolute; top: 100%; right: 0;
         display: none; flex-direction: column; min-width: 130px;
         background: #fff; border: 1px solid #d8dde8; border-radius: 6px;
-        box-shadow: 0 8px 22px rgba(8,16,30,0.14); padding: 4px; gap: 2px; z-index: 1;
+        box-shadow: 0 8px 22px rgba(8,16,30,0.14); padding: 6px 4px 4px; gap: 2px; z-index: 1;
       }
+      .hu-palette-tool-pos::after {
+        content: ''; position: absolute; top: 100%; left: 0; right: 0; height: 6px;
+        display: none;
+      }
+      .hu-palette-tool-pos:hover::after,
+      .hu-palette-tool-pos:focus-within::after { display: block; }
       .hu-palette-tool-pos:hover .hu-palette-pos-menu,
       .hu-palette-tool-pos:focus-within .hu-palette-pos-menu { display: flex; }
       .hu-palette-pos-option {
@@ -802,6 +898,8 @@ FROM (
       .hu-palette .hu-result-title { display: block; font-size: calc(12.5px * var(--hu-palette-font-scale)); line-height: 1.25; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .hu-palette .hu-result-sub { display: block; margin-top: 1px; color: #667085; font-size: calc(10.5px * var(--hu-palette-font-scale)); line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .hu-palette .hu-result-kind { color: #6a7280; font-size: calc(10px * var(--hu-palette-font-scale)); line-height: 1; align-self: center; border: 1px solid #e0e5ee; border-radius: 5px; padding: 2px 5px; }
+      .hu-palette .hu-result-kind-accent { background: #ff9b51; border-color: #ff9b51; color: #fff; font-weight: 700; letter-spacing: 0.02em; }
+      .hu-palette .hu-result.hu-active .hu-result-kind-accent { background: #ff8a35; border-color: #ff8a35; }
       .hu-palette-footer {
         border-top: 1px solid #e3e7ef; padding: 9px 14px 10px; background: #fbfcff;
         color: #667085; font-size: calc(12px * var(--hu-palette-font-scale));
@@ -1294,6 +1392,60 @@ FROM (
     applyPaletteSettings();
   }
 
+  function loadReviewState() {
+    storageGet(['huReview']).then(data => {
+      Object.assign(HU.review, data.huReview || {});
+    });
+  }
+
+  function saveReviewState(patch) {
+    Object.assign(HU.review, patch);
+    chrome.storage.local.set({ huReview: { ...HU.review } });
+  }
+
+  function recordPaletteActivity() {
+    if (!HU.review.firstActiveAt) saveReviewState({ firstActiveAt: Date.now() });
+  }
+
+  function shouldShowReviewPrompt() {
+    const r = HU.review;
+    if (r.dismissed) return false;
+    if (!r.firstActiveAt) return false;
+    const now = Date.now();
+    if (now < r.firstActiveAt + REVIEW_DELAY_MS) return false;
+    if (r.snoozeUntil && now < r.snoozeUntil) return false;
+    return true;
+  }
+
+  function injectReviewPromptIfDue(palette) {
+    if (!shouldShowReviewPrompt()) return;
+    const banner = document.createElement('div');
+    banner.className = 'hu-palette-review';
+    banner.innerHTML = `
+      <span class="hu-palette-review-text">Enjoying HaloPlus? A quick Chrome Web Store review really helps.</span>
+      <button type="button" class="hu-palette-review-btn hu-palette-review-go" data-action="review-go">Leave a review</button>
+      <button type="button" class="hu-palette-review-btn" data-action="review-later">Later</button>
+      <button type="button" class="hu-palette-review-btn hu-palette-review-no" data-action="review-no">No thanks</button>
+    `;
+    palette.insertBefore(banner, palette.firstChild);
+    palette.classList.add('hu-has-review');
+
+    banner.addEventListener('click', (event) => {
+      const action = event.target.closest('[data-action]')?.dataset.action;
+      if (!action) return;
+      if (action === 'review-go') {
+        chrome.runtime.sendMessage({ type: 'HU_OPEN_REVIEW' }, () => void chrome.runtime.lastError);
+        saveReviewState({ dismissed: true });
+      } else if (action === 'review-later') {
+        saveReviewState({ snoozeUntil: Date.now() + REVIEW_SNOOZE_MS });
+      } else if (action === 'review-no') {
+        saveReviewState({ dismissed: true });
+      }
+      banner.remove();
+      palette.classList.remove('hu-has-review');
+    });
+  }
+
   function paletteSettingsPlacementGlyph(placement) {
     if (placement === 'left') return '◧';
     if (placement === 'right') return '◨';
@@ -1384,6 +1536,24 @@ FROM (
     event.stopImmediatePropagation();
   }
 
+  function recallHistoryBack() {
+    const input = document.getElementById('hu-palette-input');
+    if (!input) return;
+    const next = HU.historyIndex + 1;
+    if (next >= HU.commandHistory.length) return;
+    if (HU.historyIndex === -1) HU.historyDraft = input.value;
+    HU.historyIndex = next;
+    input.value = HU.commandHistory[next];
+    input.setSelectionRange(input.value.length, input.value.length);
+    updatePaletteFooter(input.value);
+    runPaletteSearch(input.value);
+  }
+
+  function resetHistoryNav() {
+    HU.historyIndex = -1;
+    HU.historyDraft = '';
+  }
+
   function isTypingTarget(target) {
     if (!target) return false;
     const tag = target.tagName?.toLowerCase();
@@ -1397,6 +1567,7 @@ FROM (
     HU.paletteOpen = true;
     HU.paletteShowAll = false;
     HU.selectedIndex = 0;
+    resetHistoryNav();
 
     // Refresh custom commands from storage (re-renders palette if changed)
     loadCustomCommands().then(() => {
@@ -1438,12 +1609,16 @@ FROM (
     document.body.appendChild(palette);
     applyPaletteSettings();
     wirePaletteTools(palette);
+    recordPaletteActivity();
+    injectReviewPromptIfDue(palette);
+    updateDiscoveryIndicator();
 
     const input = document.getElementById('hu-palette-input');
     input.value = seed;
     focusPaletteInput(input);
     input.addEventListener('input', () => {
       HU.paletteShowAll = false;
+      resetHistoryNav();
       updatePaletteFooter(input.value);
       schedulePaletteSearch(input.value);
     });
@@ -1477,15 +1652,51 @@ FROM (
 
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      HU.selectedIndex = Math.min(HU.selectedIndex + 1, HU.paletteResults.length - 1);
-      renderPaletteResults(HU.paletteResults);
+      const next = Math.min(HU.selectedIndex + 1, HU.paletteResults.length - 1);
+      setPaletteSelection(next);
       return;
     }
 
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      HU.selectedIndex = Math.max(HU.selectedIndex - 1, 0);
-      renderPaletteResults(HU.paletteResults);
+      if (HU.selectedIndex > 0) {
+        setPaletteSelection(HU.selectedIndex - 1);
+        return;
+      }
+      recallHistoryBack();
+      return;
+    }
+
+    if (event.key === 'ArrowRight') {
+      const input = document.getElementById('hu-palette-input');
+      if (!input) return;
+      const atEnd = input.selectionStart === input.value.length && input.selectionEnd === input.value.length;
+      if (!atEnd) return;
+
+      const result = HU.paletteResults[HU.selectedIndex];
+      if (!result) return;
+
+      if (result.isCfgEntry) {
+        event.preventDefault();
+        input.value = '/cfg ';
+        input.setSelectionRange(input.value.length, input.value.length);
+        updatePaletteFooter(input.value);
+        runPaletteSearch(input.value);
+        return;
+      }
+      if (result.configSlug && !result.subSlug) {
+        event.preventDefault();
+        input.value = `/cfg ${result.configSlug} `;
+        input.setSelectionRange(input.value.length, input.value.length);
+        updatePaletteFooter(input.value);
+        runPaletteSearch(input.value);
+        return;
+      }
+      if (result.subSlug || result.isConfigDeepLink) {
+        event.preventDefault();
+        activateResult(result);
+        return;
+      }
       return;
     }
 
@@ -1600,6 +1811,26 @@ FROM (
   async function runPaletteSearch(rawQuery) {
     const query = rawQuery.trim();
     updatePaletteFooter(query);
+
+    const configQuery = getConfigQuery(query);
+    if (configQuery) {
+      HU.paletteResults = buildConfigResults(configQuery);
+      HU.selectedIndex = 0;
+      renderPaletteResults(HU.paletteResults, false);
+
+      if (configQuery.exactSection) {
+        const slug = configQuery.exactSection.slug;
+        const cached = HU.configTree?.[slug];
+        if ((!cached || !cached.length) && !HU.configDiscoveryInFlight.has(slug)) {
+          discoverSectionSubnav(slug).then(() => {
+            if (!HU.paletteOpen) return;
+            const input = document.getElementById('hu-palette-input');
+            if (input) runPaletteSearch(input.value);
+          });
+        }
+      }
+      return;
+    }
 
     // Entity-scoped search: "/t 2937" or "/c Acme" searches within one record type.
     const entityQuery = getEntitySearchQuery(query);
@@ -1889,7 +2120,10 @@ ORDER BY TABLE_NAME, ORDINAL_POSITION
       .filter(item => impersonationQuery === null && (item.aliasMatch || fuzzyMatch(`${item.id} ${item.title} ${item.subtitle} ${item.keywords.join(' ')}`, normalized)))
       .map(item => ({
         ...item,
-        displayTitle: `/${item.aliasMatch ? normalized : item.id}`
+        displayTitle: `/${item.aliasMatch ? normalized : item.id}`,
+        ...(item.id === 'cfg'
+          ? { isCfgEntry: true, subCount: CONFIG_SECTIONS.length, kind: `${CONFIG_SECTIONS.length} ›` }
+          : {})
       }))
       .sort((a, b) =>
         Number(b.aliasMatch) - Number(a.aliasMatch) ||
@@ -1955,11 +2189,23 @@ ORDER BY TABLE_NAME, ORDINAL_POSITION
 
     const impersonationQuery = getImpersonationQuery(query);
     const entityQuery = getEntitySearchQuery(query);
+    const configQuery = getConfigQuery(query);
     let title, subtitle;
 
     if (impersonationQuery !== null) {
       title = getImpersonationFooterTitle(impersonationQuery);
       subtitle = getImpersonationFooterSubtitle(impersonationQuery);
+    } else if (configQuery) {
+      if (configQuery.exactSection && configQuery.subpath) {
+        title = `Open ${configQuery.exactSection.label} / ${configQuery.subpath}`;
+        subtitle = 'Press Enter to jump directly to this configuration page.';
+      } else if (configQuery.rawSearch) {
+        title = `Filtering configuration sections by "${configQuery.rawSearch}"`;
+        subtitle = 'Type a section name, then optionally a subsection path (e.g. /cfg tickets tickettype).';
+      } else {
+        title = 'Browse Halo configuration sections';
+        subtitle = 'Type to filter, or add a subsection (e.g. /cfg tickets tickettype) for a deep link.';
+      }
     } else if (entityQuery) {
       title = `Searching ${entityQuery.def.kind} records for "${entityQuery.searchTerm}"`;
       subtitle = `Press Enter to open the top match, or keep typing to refine. Use /${entityQuery.def.commandId} alone to open the list.`;
@@ -1981,6 +2227,250 @@ ORDER BY TABLE_NAME, ORDINAL_POSITION
     if (normalized === 'imp') return '';
     if (normalized.startsWith('imp ')) return normalized.replace(/^imp\s+/, '').trim();
     return null;
+  }
+
+  function getConfigQuery(query) {
+    const normalized = normalizeQuery(query);
+    const m = normalized.match(/^(?:cfg|config)(?:\s+(.+))?$/);
+    if (!m) return null;
+    const tail = (m[1] || '').trim();
+    if (!tail) return { rawSearch: '', subpath: '', exactSection: null };
+
+    const tokens = tail.split(/\s+/);
+    for (let n = tokens.length; n >= 1; n--) {
+      const leading = tokens.slice(0, n).join(' ');
+      const section = findConfigSection(leading);
+      if (section) {
+        const subpath = tokens.slice(n).join('/');
+        return { rawSearch: tail, subpath, exactSection: section };
+      }
+    }
+    return { rawSearch: tail, subpath: '', exactSection: null };
+  }
+
+  function findConfigSection(text) {
+    const t = String(text || '').toLowerCase().trim();
+    if (!t) return null;
+    return (
+      CONFIG_SECTIONS.find(c => c.slug === t) ||
+      CONFIG_SECTIONS.find(c => c.label.toLowerCase() === t) ||
+      CONFIG_SECTIONS.find(c => c.keywords.includes(t)) ||
+      null
+    );
+  }
+
+  function loadConfigTree() {
+    storageGet(['huConfigTree']).then(data => {
+      HU.configTree = data.huConfigTree || {};
+    });
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local' || !changes.huConfigTree) return;
+      HU.configTree = changes.huConfigTree.newValue || {};
+    });
+  }
+
+  function maybeScrapeConfigPage() {
+    const m = location.pathname.match(/^\/config\/([a-z0-9_-]+)/i);
+    if (!m) return;
+    const section = m[1].toLowerCase();
+    if (!CONFIG_SECTIONS.find(c => c.slug === section)) return;
+    clearTimeout(HU.configScrapeTimer);
+    HU.configScrapeTimer = setTimeout(() => scrapeAndCacheConfigSubnav(section), 1200);
+  }
+
+  function scrapeAndCacheConfigSubnav(section) {
+    const subs = scrapeSubnavFromDoc(document, section);
+    if (!subs.length) return;
+    saveConfigTreeSection(section, subs);
+  }
+
+  function scrapeSubnavFromDoc(doc, section) {
+    const prefix = `/config/${section}/`;
+    const seen = new Set();
+    const subs = [];
+    doc.querySelectorAll('a[href]').forEach(a => {
+      const path = a.pathname || '';
+      if (!path.startsWith(prefix)) return;
+      const rest = path.slice(prefix.length).replace(/\/+$/, '');
+      if (!rest || rest.includes('/')) return;
+      const slug = rest.toLowerCase();
+      if (seen.has(slug)) return;
+      const label = (a.textContent || '').replace(/\s+/g, ' ').trim();
+      if (!label || label.length > 80) return;
+      seen.add(slug);
+      subs.push({ slug, label });
+    });
+    return subs;
+  }
+
+  function saveConfigTreeSection(section, subs) {
+    HU.configTree = HU.configTree || {};
+    HU.configTree[section] = subs;
+    chrome.storage.local.set({ huConfigTree: { ...HU.configTree } });
+  }
+
+  function updateDiscoveryIndicator() {
+    const palette = document.getElementById('hu-palette');
+    if (!palette) return;
+    let el = document.getElementById('hu-palette-discovery');
+
+    const inFlightSize = HU.configDiscoveryInFlight.size;
+    const warmup = HU.configWarmupProgress;
+    const active = inFlightSize > 0 || warmup.total > 0;
+
+    if (!active) {
+      if (el) el.remove();
+      return;
+    }
+
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'hu-palette-discovery';
+      el.className = 'hu-palette-discovery';
+      palette.appendChild(el);
+    }
+
+    let label;
+    if (warmup.total > 0) {
+      label = `Indexing ${warmup.sectionLabel || 'configuration'} (${warmup.current}/${warmup.total})`;
+    } else {
+      const slug = [...HU.configDiscoveryInFlight][0];
+      const section = slug && CONFIG_SECTIONS.find(c => c.slug === slug);
+      label = section ? `Indexing ${section.label}…` : 'Indexing…';
+    }
+    el.innerHTML = `<span class="hu-spinner"></span><span>${escapeHtml(label)}</span>`;
+  }
+
+  function discoverSectionSubnav(slug, settleMs = 1500, timeoutMs = 6000) {
+    return new Promise(resolve => {
+      if (!CONFIG_SECTIONS.find(c => c.slug === slug)) return resolve([]);
+      if (HU.configDiscoveryInFlight.has(slug)) return resolve([]);
+      HU.configDiscoveryInFlight.add(slug);
+      updateDiscoveryIndicator();
+
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('aria-hidden', 'true');
+      iframe.style.cssText = 'position:fixed;left:-100000px;top:0;width:1280px;height:800px;border:0;visibility:hidden;pointer-events:none;';
+      iframe.src = `/config/${slug}`;
+      let done = false;
+      const finish = (subs) => {
+        if (done) return;
+        done = true;
+        HU.configDiscoveryInFlight.delete(slug);
+        updateDiscoveryIndicator();
+        try { iframe.remove(); } catch (_) {}
+        resolve(subs || []);
+      };
+      iframe.addEventListener('load', () => {
+        setTimeout(() => {
+          let subs = [];
+          try {
+            const doc = iframe.contentDocument;
+            if (doc) subs = scrapeSubnavFromDoc(doc, slug);
+          } catch (_) {}
+          if (subs.length) saveConfigTreeSection(slug, subs);
+          finish(subs);
+        }, settleMs);
+      });
+      iframe.addEventListener('error', () => finish([]));
+      setTimeout(() => finish([]), timeoutMs);
+      document.body.appendChild(iframe);
+    });
+  }
+
+  async function warmupConfigDiscovery() {
+    const data = await storageGet(['huConfigDiscovery', 'huConfigDiscoveryLock', 'huConfigTree']);
+    if (data.huConfigDiscovery?.warmupDone) return;
+    const lockAge = Date.now() - (data.huConfigDiscoveryLock || 0);
+    if (lockAge < 180000) return;
+    await new Promise(r => chrome.storage.local.set({ huConfigDiscoveryLock: Date.now() }, r));
+
+    HU.configTree = data.huConfigTree || {};
+    const total = CONFIG_SECTIONS.length;
+    for (let i = 0; i < total; i++) {
+      const section = CONFIG_SECTIONS[i];
+      if (HU.configTree[section.slug]?.length) continue;
+      HU.configWarmupProgress = { current: i + 1, total, sectionLabel: section.label };
+      updateDiscoveryIndicator();
+      try { await discoverSectionSubnav(section.slug); } catch (_) {}
+      await new Promise(r => setTimeout(r, 800));
+    }
+    HU.configWarmupProgress = { current: 0, total: 0, sectionLabel: '' };
+    updateDiscoveryIndicator();
+
+    chrome.storage.local.set({ huConfigDiscovery: { warmupDone: true, warmupAt: Date.now() } });
+    chrome.storage.local.remove('huConfigDiscoveryLock');
+  }
+
+  function buildConfigResults(configQuery) {
+    const tree = HU.configTree || {};
+
+    if (configQuery.exactSection) {
+      const sec = configQuery.exactSection;
+      const cachedSubs = tree[sec.slug] || [];
+
+      if (configQuery.subpath) {
+        const subLower = configQuery.subpath.toLowerCase();
+        const matching = cachedSubs.filter(s =>
+          s.slug.includes(subLower) || s.label.toLowerCase().includes(subLower)
+        );
+        if (matching.length) {
+          return matching.map(s => buildSubsectionResult(sec, s));
+        }
+        const url = new URL(`/config/${sec.slug}/${configQuery.subpath}`, window.location.origin).href;
+        return [{
+          title: `${sec.label} / ${configQuery.subpath}`,
+          subtitle: `/config/${sec.slug}/${configQuery.subpath}`,
+          kind: 'Config',
+          type: 'navigate',
+          url,
+          isConfigDeepLink: true
+        }];
+      }
+
+      const sectionResult = {
+        title: sec.label,
+        subtitle: `/config/${sec.slug}`,
+        kind: 'Config',
+        type: 'navigate',
+        url: new URL(`/config/${sec.slug}`, window.location.origin).href,
+        configSlug: sec.slug
+      };
+      return [sectionResult, ...cachedSubs.map(s => buildSubsectionResult(sec, s))];
+    }
+
+    const search = configQuery.rawSearch.toLowerCase();
+    const matches = CONFIG_SECTIONS.filter(c => {
+      if (!search) return true;
+      const hay = `${c.slug} ${c.label} ${c.keywords.join(' ')}`.toLowerCase();
+      return hay.includes(search);
+    });
+
+    return matches.map(c => {
+      const cached = tree[c.slug] || [];
+      const kind = cached.length ? `${cached.length} ›` : 'Config';
+      return {
+        title: c.label,
+        subtitle: `/config/${c.slug}`,
+        kind,
+        type: 'navigate',
+        url: new URL(`/config/${c.slug}`, window.location.origin).href,
+        configSlug: c.slug,
+        subCount: cached.length
+      };
+    });
+  }
+
+  function buildSubsectionResult(section, sub) {
+    return {
+      title: `${section.label} / ${sub.label}`,
+      subtitle: `/config/${section.slug}/${sub.slug}`,
+      kind: 'Config',
+      type: 'navigate',
+      url: new URL(`/config/${section.slug}/${sub.slug}`, window.location.origin).href,
+      configSlug: section.slug,
+      subSlug: sub.slug
+    };
   }
 
   function getImpersonationFooterTitle(query) {
@@ -2152,15 +2642,16 @@ ${orderBy}
     const button = document.createElement('button');
     button.className = `hu-result ${index === HU.selectedIndex ? 'hu-active' : ''}`;
     button.dataset.resultIndex = String(index);
+    const kindClass = item.subCount > 0 ? 'hu-result-kind hu-result-kind-accent' : 'hu-result-kind';
     button.innerHTML = `
       <span>
         <span class="hu-result-title">${escapeHtml(item.displayTitle || item.title)}</span>
         <span class="hu-result-sub">${escapeHtml(item.subtitle || '')}</span>
       </span>
-      <span class="hu-result-kind">${escapeHtml(item.kind || item.type || 'Action')}</span>
+      <span class="${kindClass}">${escapeHtml(item.kind || item.type || 'Action')}</span>
     `;
-    button.addEventListener('mouseenter', () => {
-      setPaletteSelection(index);
+    button.addEventListener('mousemove', () => {
+      if (HU.selectedIndex !== index) setPaletteSelection(index);
     });
     button.addEventListener('click', () => activateResult(item));
     return button;
@@ -2175,9 +2666,16 @@ ${orderBy}
   function setPaletteSelection(index) {
     HU.selectedIndex = index;
     const list = document.getElementById('hu-palette-list');
-    list?.querySelectorAll('.hu-result').forEach(node => {
-      node.classList.toggle('hu-active', Number(node.dataset.resultIndex) === index);
+    if (!list) return;
+    let activeNode = null;
+    list.querySelectorAll('.hu-result').forEach(node => {
+      const isActive = Number(node.dataset.resultIndex) === index;
+      node.classList.toggle('hu-active', isActive);
+      if (isActive) activeNode = node;
     });
+    if (activeNode && typeof activeNode.scrollIntoView === 'function') {
+      activeNode.scrollIntoView({ block: 'nearest' });
+    }
   }
 
   function renderPaletteResults(results, grouped = false) {
@@ -2228,6 +2726,8 @@ ${orderBy}
       return;
     }
 
+    const inputEl = document.getElementById('hu-palette-input');
+    if (inputEl) pushCommandHistory(inputEl.value);
     closePalette();
     await trackRecentCommand(item).catch(() => {});
     if (item.type === 'command') { item.run(); return; }
@@ -2411,6 +2911,18 @@ ${orderBy}
     return HU.recentCommands;
   }
 
+  async function loadCommandHistory() {
+    const data = await storageGet(['huCommandHistory']);
+    HU.commandHistory = Array.isArray(data.huCommandHistory) ? data.huCommandHistory : [];
+  }
+
+  function pushCommandHistory(rawQuery) {
+    const trimmed = String(rawQuery || '').trim();
+    if (!trimmed || trimmed === '/') return;
+    HU.commandHistory = [trimmed, ...HU.commandHistory.filter(q => q !== trimmed)].slice(0, 50);
+    chrome.storage.local.set({ huCommandHistory: HU.commandHistory });
+  }
+
   function getRecentCommandResults() {
     return (HU.recentCommands || [])
       .map(entry => resolveRecentCommand(entry))
@@ -2461,7 +2973,10 @@ ${orderBy}
         ...command,
         displayTitle: `/${command.id}`,
         subtitle: command.subtitle ? `${command.title} - ${command.subtitle}` : command.title,
-        kind: command.kind || 'Tools'
+        kind: command.kind || 'Tools',
+        ...(command.id === 'cfg'
+          ? { isCfgEntry: true, subCount: CONFIG_SECTIONS.length, kind: `${CONFIG_SECTIONS.length} ›` }
+          : {})
       }));
   }
 
@@ -2522,7 +3037,10 @@ ${orderBy}
         ...command,
         displayTitle: entry.displayTitle || `/${command.id}`,
         subtitle: command.subtitle ? `${command.title} - ${command.subtitle}` : command.title,
-        kind: command.kind || 'Tools'
+        kind: command.kind || 'Tools',
+        ...(command.id === 'cfg'
+          ? { isCfgEntry: true, subCount: CONFIG_SECTIONS.length, kind: `${CONFIG_SECTIONS.length} ›` }
+          : {})
       } : null;
     }
 
@@ -2979,6 +3497,7 @@ ${orderBy}
   }
 
   async function openTicket360Panel() {
+    if (HU.settings.ticket360Enabled === false) return false;
     const ticketId = getCurrentTicketId();
     if (!ticketId) {
       toast('Open a ticket first');
@@ -4388,6 +4907,7 @@ ${orderBy}
   }
 
   function injectTicket360Button() {
+    if (HU.settings.ticket360Enabled === false) return;
     if (!getCurrentTicketId()) return;
     if (document.getElementById('hu-360-inject-btn')) return;
     const container = document.querySelector('.buttons-container:has(button[title="Share"])');
@@ -4411,6 +4931,7 @@ ${orderBy}
   }
 
   function scheduleAutoTicket360(attempt = 0) {
+    if (HU.settings.ticket360Enabled === false) return;
     if (!HU.settings.auto360) return;
     const ticketId = getCurrentTicketId();
     if (ticketId) {
@@ -4427,6 +4948,7 @@ ${orderBy}
     setTimeout(() => {
       sendContext();
       trackRecentRecord();
+      maybeScrapeConfigPage();
     }, 1200);
 
     let lastUrl = location.href;
@@ -4436,6 +4958,7 @@ ${orderBy}
         setTimeout(() => {
           sendContext();
           trackRecentRecord();
+          maybeScrapeConfigPage();
           if (HU.fieldOverlayOn) revealFieldNames();
           injectTicket360Button();
           const newId = getCurrentTicketId();
@@ -4523,28 +5046,510 @@ ${orderBy}
   });
 
   document.addEventListener('dblclick', e => {
+    if (HU.settings.doubleClickTechFields === false) return;
     const target = e.target;
     if (target.closest('#haloutils-palette-backdrop, .hu-drawer, .hu-toast')) return;
     if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
     toggleFieldOverlay();
   });
 
+  const HU_EMAIL_VARS = {
+    catalog: new Map(),
+    state: { active: false, target: null, triggerStart: 0, query: '', selectedIndex: 0, popup: null, candidates: [], category: 'All' },
+    harvested: false,
+    pollTimer: null
+  };
+
+  function isEmailTemplatePage() {
+    return /\/config\/email\//i.test(location.pathname);
+  }
+
+  async function loadEmailVarCatalog() {
+    try {
+      const resp = await fetch(chrome.runtime.getURL('schema/email-variables.json'));
+      const json = await resp.json();
+      (json.variables || []).forEach(v => {
+        HU_EMAIL_VARS.catalog.set(v.name.toLowerCase(), {
+          name: v.name,
+          description: v.description || '',
+          category: v.category || 'Other',
+          isButton: !!v.isButton,
+          source: 'seed'
+        });
+      });
+    } catch (_) {}
+    const data = await storageGet(['huEmailVarCatalog', 'huEmailVarCategory', 'huEmailVarCustomFields']);
+    (data.huEmailVarCatalog || []).forEach(v => {
+      if (!HU_EMAIL_VARS.catalog.has(v.name.toLowerCase())) {
+        HU_EMAIL_VARS.catalog.set(v.name.toLowerCase(), { ...v, category: v.category || 'Other', isButton: !!v.isButton, source: v.source || 'learned' });
+      }
+    });
+    if (data.huEmailVarCustomFields?.fields?.length) {
+      mergeCustomFieldsIntoCatalog(data.huEmailVarCustomFields.fields);
+    }
+    if (data.huEmailVarCategory) HU_EMAIL_VARS.state.category = data.huEmailVarCategory;
+  }
+
+  function persistLearnedVars() {
+    const learned = [...HU_EMAIL_VARS.catalog.values()].filter(v => v.source !== 'seed');
+    chrome.storage.local.set({ huEmailVarCatalog: learned });
+  }
+
+  function harvestVariablesFromPage() {
+    if (HU_EMAIL_VARS.harvested) return;
+    HU_EMAIL_VARS.harvested = true;
+    const text = document.body?.innerText || '';
+    const matches = text.match(/\$[A-Za-z][A-Za-z0-9_]{1,40}/g) || [];
+    let added = 0;
+    matches.forEach(token => {
+      const name = token.slice(1);
+      const key = name.toLowerCase();
+      if (HU_EMAIL_VARS.catalog.has(key)) return;
+      HU_EMAIL_VARS.catalog.set(key, { name, label: name, description: 'Found in this template.', category: 'Other', source: 'learned' });
+      added++;
+    });
+    if (added) persistLearnedVars();
+  }
+
+  function isTemplateField(el) {
+    if (!el) return false;
+    if (!el.matches) return false;
+    if (el.matches('input[name="header_text"], input[name="subject"]')) return true;
+    if (el.closest('.fr-element[contenteditable="true"]')) return true;
+    if (el.matches('input[type="text"], input:not([type])') && el.closest('.fr-popup')) return true;
+    return false;
+  }
+
+  const CF_TABLE_CATEGORY = {
+    faults: 'Ticket custom fields',
+    area: 'Organisation custom fields',
+    users: 'End user custom fields',
+    device: 'Asset custom fields',
+    site: 'Site custom fields',
+    uname: 'Agent custom fields'
+  };
+  const CF_DISCOVERY_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+  function mergeCustomFieldsIntoCatalog(fields) {
+    (fields || []).forEach(f => {
+      const key = String(f.name || '').toLowerCase();
+      if (!key) return;
+      if (HU_EMAIL_VARS.catalog.has(key) && HU_EMAIL_VARS.catalog.get(key).source === 'seed') return;
+      HU_EMAIL_VARS.catalog.set(key, {
+        name: f.name,
+        description: f.description || '',
+        category: f.category || 'Custom fields',
+        isButton: false,
+        source: 'cf-discovery'
+      });
+    });
+  }
+
+  async function discoverEmailVarCustomFields() {
+    if (HU_EMAIL_VARS.cfDiscoveryStarted) return;
+    HU_EMAIL_VARS.cfDiscoveryStarted = true;
+    try {
+      const cached = await storageGet(['huEmailVarCustomFields']);
+      const c = cached.huEmailVarCustomFields;
+      if (c?.fields?.length && c.fetchedAt && (Date.now() - c.fetchedAt < CF_DISCOVERY_TTL_MS)) {
+        mergeCustomFieldsIntoCatalog(c.fields);
+        return;
+      }
+
+      const tables = Object.keys(CF_TABLE_CATEGORY).map(t => `'${t}'`).join(', ');
+      const sql = `
+SELECT TABLE_NAME, COLUMN_NAME
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE COLUMN_NAME LIKE 'CF%'
+  AND TABLE_NAME IN (${tables})
+`.trim();
+
+      const payload = await runHaloReport(sql, 'HaloPlus Email CF Discovery');
+      const rows = extractRows(payload);
+      const fields = rows
+        .map(r => ({
+          table: String(r.TABLE_NAME || r.table || '').toLowerCase(),
+          column: String(r.COLUMN_NAME || r.column || '')
+        }))
+        .filter(r => r.table && r.column && /^CF[A-Za-z0-9_]+$/.test(r.column))
+        .map(r => ({
+          name: r.column,
+          category: CF_TABLE_CATEGORY[r.table] || 'Custom fields',
+          description: `Custom field on ${r.table}.`
+        }));
+      if (!fields.length) return;
+      await new Promise(resolve => chrome.storage.local.set({ huEmailVarCustomFields: { fields, fetchedAt: Date.now() } }, resolve));
+      mergeCustomFieldsIntoCatalog(fields);
+    } catch (_) {
+      // leave cfDiscoveryStarted set: next page load can retry
+    }
+  }
+
+  function getTriggerInfo(target) {
+    if (!target) return null;
+    if (target.tagName === 'INPUT') {
+      const caret = target.selectionStart;
+      const before = target.value.slice(0, caret);
+      const m = before.match(/\$([A-Za-z0-9_]*)$/);
+      if (!m) return null;
+      return { kind: 'input', node: target, triggerStart: caret - m[0].length, caret, query: m[1] };
+    }
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) return null;
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return null;
+    const editable = node.parentElement && node.parentElement.closest('.fr-element[contenteditable="true"]');
+    if (!editable) return null;
+    const before = node.textContent.slice(0, range.startOffset);
+    const m = before.match(/\$([A-Za-z0-9_]*)$/);
+    if (!m) return null;
+    return { kind: 'ce', node, range, editable, triggerStart: range.startOffset - m[0].length, caret: range.startOffset, query: m[1] };
+  }
+
+  function getCaretRect(info) {
+    if (info.kind === 'input') {
+      const frPopup = info.node.closest && info.node.closest('.fr-popup');
+      if (frPopup) {
+        const fp = frPopup.getBoundingClientRect();
+        const spaceRight = window.innerWidth - fp.right;
+        if (spaceRight >= 340) {
+          return { left: fp.right + 8, top: fp.top, height: 0 };
+        }
+        const spaceLeft = fp.left;
+        if (spaceLeft >= 340) {
+          return { left: fp.left - 328, top: fp.top, height: 0 };
+        }
+        return { left: Math.max(8, fp.left), top: fp.bottom + 6, height: 0 };
+      }
+      const r = info.node.getBoundingClientRect();
+      return { left: r.left + 12, top: r.bottom, height: 0 };
+    }
+    const probe = document.createRange();
+    probe.setStart(info.node, Math.max(0, info.caret - 1));
+    probe.setEnd(info.node, info.caret);
+    const rects = probe.getClientRects();
+    if (rects.length) return { left: rects[0].right, top: rects[0].bottom, height: rects[0].height };
+    const editableRect = info.editable.getBoundingClientRect();
+    return { left: editableRect.left + 12, top: editableRect.top + 24, height: 0 };
+  }
+
+  function getCandidates(query, category) {
+    const q = String(query || '').toLowerCase();
+    const cat = category || 'All';
+    let pool = [...HU_EMAIL_VARS.catalog.values()];
+    if (cat !== 'All') pool = pool.filter(v => (v.category || 'Other') === cat);
+    if (!q) return pool.slice().sort((a, b) => a.name.localeCompare(b.name)).slice(0, 60);
+    return pool
+      .filter(v => v.name.toLowerCase().includes(q) || String(v.description || '').toLowerCase().includes(q))
+      .sort((a, b) => {
+        const aStarts = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+        const bStarts = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+        return aStarts - bStarts || a.name.localeCompare(b.name);
+      })
+      .slice(0, 60);
+  }
+
+  function getAvailableCategories() {
+    const present = new Set();
+    HU_EMAIL_VARS.catalog.forEach(v => present.add(v.category || 'Other'));
+    const regular = [...present].filter(c => !/Buttons?$/i.test(c)).sort();
+    const buttonCats = [...present].filter(c => /Buttons?$/i.test(c)).sort();
+    const ordered = ['All', ...regular, ...buttonCats];
+    if (present.has('Other')) {
+      const idx = ordered.indexOf('Other');
+      if (idx > -1) ordered.splice(idx, 1);
+      ordered.push('Other');
+    }
+    return ordered;
+  }
+
+  function ensureVarPopupStyles() {
+    if (document.getElementById('hu-evp-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'hu-evp-styles';
+    style.textContent = `
+      .hu-evp { position: fixed; z-index: 2147483647; isolation: isolate; width: 320px; max-height: 280px;
+        background: #fff; border: 1px solid #d8dde8; border-radius: 8px;
+        box-shadow: 0 16px 40px rgba(8,16,30,0.22); overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        font-size: 12.5px; color: #172033; display: flex; flex-direction: column; }
+      .hu-evp-header { padding: 8px 10px; border-bottom: 1px solid #eef0f5; background: #fbfcff;
+        font-size: 11px; color: #667085; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+      .hu-evp-header-left { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+      .hu-evp-category { font-size: 11px; padding: 2px 6px; border-radius: 4px; border: 1px solid #d8dde8; background: #fff; color: #172033; max-width: 150px; }
+      html.hu-theme-dark .hu-evp-category { background: #171b22; border-color: #303744; color: #edf1f7; }
+      .hu-evp-list { flex: 1; overflow-y: auto; padding: 4px; }
+      .hu-evp-row { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px;
+        border-radius: 5px; cursor: pointer; }
+      .hu-evp-row:hover, .hu-evp-row.hu-evp-active { background: #eef4ff; }
+      .hu-evp-row-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+      .hu-evp-name { font-family: "SF Mono", Consolas, monospace; font-size: 12px; font-weight: 700; color: #b85a18; white-space: nowrap; }
+      .hu-evp-label { font-size: 11px; color: #475066; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; text-align: right; }
+      .hu-evp-desc { font-size: 10.5px; color: #6a7280; line-height: 1.35; overflow: hidden;
+        text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+      .hu-evp-empty { padding: 12px; color: #6a7280; font-size: 12px; text-align: center; }
+      html.hu-theme-dark .hu-evp { background: #1a2236; color: #edf1f7; border-color: #303744; box-shadow: 0 16px 40px rgba(0,0,0,0.45); }
+      html.hu-theme-dark .hu-evp-header { background: #161e2d; border-color: #2b3548; color: #a7afbd; }
+      html.hu-theme-dark .hu-evp-row:hover, html.hu-theme-dark .hu-evp-row.hu-evp-active { background: #1d2a42; }
+      html.hu-theme-dark .hu-evp-name { color: #ff9b51; }
+      html.hu-theme-dark .hu-evp-label { color: #c7cedb; }
+      html.hu-theme-dark .hu-evp-desc { color: #a7afbd; }
+    `;
+    document.documentElement.appendChild(style);
+  }
+
+  function renderVarPopup(info) {
+    ensureVarPopupStyles();
+    let popup = HU_EMAIL_VARS.state.popup;
+    if (!popup) {
+      popup = document.createElement('div');
+      popup.className = 'hu-evp';
+      const options = getAvailableCategories()
+        .map(c => `<option value="${escapeHtml(c)}"${c === HU_EMAIL_VARS.state.category ? ' selected' : ''}>${escapeHtml(c)}</option>`)
+        .join('');
+      popup.innerHTML = `
+        <div class="hu-evp-header">
+          <span class="hu-evp-header-left">
+            <span>Variables</span>
+            <select class="hu-evp-category" aria-label="Filter by category">${options}</select>
+          </span>
+          <span class="hu-evp-hint">Enter to insert</span>
+        </div>
+        <div class="hu-evp-list"></div>
+      `;
+      document.documentElement.appendChild(popup);
+      HU_EMAIL_VARS.state.popup = popup;
+      const select = popup.querySelector('.hu-evp-category');
+      select.addEventListener('change', () => {
+        HU_EMAIL_VARS.state.category = select.value;
+        chrome.storage.local.set({ huEmailVarCategory: select.value });
+        HU_EMAIL_VARS.state.candidates = getCandidates(HU_EMAIL_VARS.state.query, HU_EMAIL_VARS.state.category);
+        HU_EMAIL_VARS.state.selectedIndex = 0;
+        renderVarPopup(HU_EMAIL_VARS.state.triggerInfo);
+        if (HU_EMAIL_VARS.state.target) HU_EMAIL_VARS.state.target.focus();
+      });
+      select.addEventListener('mousedown', e => e.stopPropagation());
+    }
+    if (popup.parentElement !== document.documentElement) {
+      document.documentElement.appendChild(popup);
+    }
+    const rect = getCaretRect(info);
+    const popupHeight = 280;
+    const wantTop = rect.top + 4;
+    const fitsBelow = wantTop + popupHeight < window.innerHeight - 8;
+    popup.style.left = `${Math.min(Math.max(rect.left - 4, 8), window.innerWidth - 330)}px`;
+    popup.style.top = `${fitsBelow ? wantTop : Math.max(rect.top - rect.height - popupHeight - 8, 8)}px`;
+
+    const list = popup.querySelector('.hu-evp-list');
+    const cands = HU_EMAIL_VARS.state.candidates;
+    list.innerHTML = '';
+    if (!cands.length) {
+      list.innerHTML = `<div class="hu-evp-empty">No variables match "${escapeHtml(HU_EMAIL_VARS.state.query)}". Press Esc to dismiss.</div>`;
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    cands.forEach((v, idx) => {
+      const row = document.createElement('div');
+      row.className = `hu-evp-row${idx === HU_EMAIL_VARS.state.selectedIndex ? ' hu-evp-active' : ''}`;
+      row.dataset.idx = String(idx);
+      const token = v.isButton ? `{$${v.name}}` : `$${v.name}`;
+      row.innerHTML = `
+        <div class="hu-evp-row-top">
+          <span class="hu-evp-name">${escapeHtml(token)}</span>
+          <span class="hu-evp-label">${escapeHtml(v.category || '')}</span>
+        </div>
+        ${v.description ? `<div class="hu-evp-desc">${escapeHtml(v.description)}</div>` : ''}
+      `;
+      row.addEventListener('mousedown', (e) => { e.preventDefault(); insertVariable(idx); });
+      row.addEventListener('mousemove', () => {
+        if (HU_EMAIL_VARS.state.selectedIndex !== idx) {
+          HU_EMAIL_VARS.state.selectedIndex = idx;
+          renderVarPopup(info);
+        }
+      });
+      frag.appendChild(row);
+    });
+    list.appendChild(frag);
+    const active = list.querySelector('.hu-evp-active');
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }
+
+  function closeVarPopup() {
+    const popup = HU_EMAIL_VARS.state.popup;
+    const keepCategory = HU_EMAIL_VARS.state.category;
+    if (popup) popup.remove();
+    HU_EMAIL_VARS.state = { active: false, target: null, triggerStart: 0, query: '', selectedIndex: 0, popup: null, candidates: [], category: keepCategory };
+    stopVarPoll();
+  }
+
+  function startVarPoll() {
+    if (HU_EMAIL_VARS.pollTimer) return;
+    let lastSig = '';
+    HU_EMAIL_VARS.pollTimer = setInterval(() => {
+      if (!HU_EMAIL_VARS.state.active) { stopVarPoll(); return; }
+      const target = HU_EMAIL_VARS.state.target;
+      if (!target || !document.contains(target)) { stopVarPoll(); return; }
+      const sig = target.tagName === 'INPUT'
+        ? `${target.value}|${target.selectionStart}`
+        : (target.textContent || '');
+      if (sig === lastSig) return;
+      lastSig = sig;
+      handleEmailFieldInput({ target });
+    }, 80);
+  }
+
+  function stopVarPoll() {
+    if (HU_EMAIL_VARS.pollTimer) {
+      clearInterval(HU_EMAIL_VARS.pollTimer);
+      HU_EMAIL_VARS.pollTimer = null;
+    }
+  }
+
+  function insertVariable(idx) {
+    const cands = HU_EMAIL_VARS.state.candidates;
+    const chosen = cands[idx];
+    if (!chosen) return;
+    const target = HU_EMAIL_VARS.state.target;
+    const trigger = HU_EMAIL_VARS.state.triggerInfo;
+    if (!target || !trigger) { closeVarPopup(); return; }
+    const replacement = chosen.isButton ? `{$${chosen.name}} ` : `$${chosen.name} `;
+
+    if (trigger.kind === 'input') {
+      const value = target.value;
+      const before = value.slice(0, trigger.triggerStart);
+      const after = value.slice(trigger.caret);
+      target.value = before + replacement + after;
+      const newCaret = (before + replacement).length;
+      target.setSelectionRange(newCaret, newCaret);
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+      const node = trigger.node;
+      const text = node.textContent;
+      const before = text.slice(0, trigger.triggerStart);
+      const after = text.slice(trigger.caret);
+      node.textContent = before + replacement + after;
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.setStart(node, (before + replacement).length);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      trigger.editable.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    closeVarPopup();
+  }
+
+  function refreshVarPopup() {
+    const info = getTriggerInfo(HU_EMAIL_VARS.state.target);
+    if (!info) { closeVarPopup(); return; }
+    HU_EMAIL_VARS.state.triggerInfo = info;
+    HU_EMAIL_VARS.state.triggerStart = info.triggerStart;
+    HU_EMAIL_VARS.state.query = info.query;
+    HU_EMAIL_VARS.state.candidates = getCandidates(info.query, HU_EMAIL_VARS.state.category);
+    HU_EMAIL_VARS.state.selectedIndex = Math.min(HU_EMAIL_VARS.state.selectedIndex, Math.max(0, HU_EMAIL_VARS.state.candidates.length - 1));
+    renderVarPopup(info);
+  }
+
+  function handleEmailFieldInput(event) {
+    const target = event.target;
+    if (!isTemplateField(target)) return;
+    if (!HU_EMAIL_VARS.harvested) harvestVariablesFromPage();
+    if (isEmailTemplatePage() && !HU_EMAIL_VARS.cfDiscoveryStarted) {
+      discoverEmailVarCustomFields().catch(() => {});
+    }
+    const info = getTriggerInfo(target);
+    if (!info) {
+      if (HU_EMAIL_VARS.state.active) closeVarPopup();
+      return;
+    }
+    const wasActive = HU_EMAIL_VARS.state.active;
+    if (!wasActive) HU_EMAIL_VARS.state.category = 'All';
+    HU_EMAIL_VARS.state.active = true;
+    HU_EMAIL_VARS.state.target = target;
+    HU_EMAIL_VARS.state.triggerInfo = info;
+    HU_EMAIL_VARS.state.triggerStart = info.triggerStart;
+    HU_EMAIL_VARS.state.query = info.query;
+    HU_EMAIL_VARS.state.candidates = getCandidates(info.query, HU_EMAIL_VARS.state.category);
+    if (HU_EMAIL_VARS.state.selectedIndex >= HU_EMAIL_VARS.state.candidates.length) {
+      HU_EMAIL_VARS.state.selectedIndex = 0;
+    }
+    renderVarPopup(info);
+    if (!wasActive) startVarPoll();
+  }
+
+  function handleEmailFieldKey(event) {
+    if (!HU_EMAIL_VARS.state.active) return;
+    if (HU_EMAIL_VARS.state.popup && HU_EMAIL_VARS.state.popup.contains(event.target)) return;
+    const cands = HU_EMAIL_VARS.state.candidates;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeVarPopup();
+      return;
+    }
+    if (!cands.length) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      HU_EMAIL_VARS.state.selectedIndex = Math.min(HU_EMAIL_VARS.state.selectedIndex + 1, cands.length - 1);
+      renderVarPopup(HU_EMAIL_VARS.state.triggerInfo);
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      HU_EMAIL_VARS.state.selectedIndex = Math.max(HU_EMAIL_VARS.state.selectedIndex - 1, 0);
+      renderVarPopup(HU_EMAIL_VARS.state.triggerInfo);
+      return;
+    }
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault();
+      insertVariable(HU_EMAIL_VARS.state.selectedIndex);
+      return;
+    }
+  }
+
+  function initEmailVarAutocomplete() {
+    loadEmailVarCatalog();
+    document.addEventListener('input', handleEmailFieldInput, true);
+    document.addEventListener('keydown', handleEmailFieldKey, true);
+    document.addEventListener('keyup', (event) => {
+      if (HU_EMAIL_VARS.state.popup && HU_EMAIL_VARS.state.popup.contains(event.target)) return;
+      if (!isTemplateField(event.target)) return;
+      handleEmailFieldInput({ target: event.target });
+    }, true);
+    document.addEventListener('mousedown', (event) => {
+      if (!HU_EMAIL_VARS.state.popup) return;
+      if (HU_EMAIL_VARS.state.popup.contains(event.target)) return;
+      if (event.target === HU_EMAIL_VARS.state.target) return;
+      closeVarPopup();
+    }, true);
+    document.addEventListener('scroll', () => {
+      if (HU_EMAIL_VARS.state.active) refreshVarPopup();
+    }, true);
+  }
   initTheme();
   injectStyles();
   loadShortcuts();
   loadCustomCommands();
   loadRecentCommands();
+  loadCommandHistory();
   loadTicketTypes();
   loadRecent();
   loadImpersonationState();
   loadSettings();
   loadPaletteSettings();
+  loadReviewState();
+  loadConfigTree();
   initPalette();
   initNavigationTracking();
+  initEmailVarAutocomplete();
   setTimeout(() => {
     injectTicket360Button();
     scheduleAutoTicket360();
   }, 1500);
+  if (window === window.top) {
+    setTimeout(() => { warmupConfigDiscovery().catch(() => {}); }, 8000);
+  }
 })();
 
 

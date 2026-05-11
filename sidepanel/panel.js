@@ -2039,7 +2039,13 @@ function customMatchesIncludeUrl(matches, url) {
 
 async function loadPreferences() {
   const data = await new Promise(r => chrome.storage.local.get([SETTINGS_KEY], r));
-  return Object.assign({ auto360: false, drawer360Push: false, hideHaloSidebar: false }, data[SETTINGS_KEY] || {});
+  return Object.assign({
+    ticket360Enabled: true,
+    auto360: true,
+    drawer360Push: false,
+    hideHaloSidebar: false,
+    doubleClickTechFields: true
+  }, data[SETTINGS_KEY] || {});
 }
 
 async function savePreferences(prefs) {
@@ -2047,26 +2053,40 @@ async function savePreferences(prefs) {
 }
 
 function setupPreferences() {
+  const enabledEl      = document.getElementById('prefTicket360Enabled');
   const auto360El      = document.getElementById('prefAuto360');
   const pushEl         = document.getElementById('prefDrawer360Push');
   const sidebarEl      = document.getElementById('prefHideHaloSidebar');
-  if (!auto360El || !pushEl || !sidebarEl) return;
+  const dblClickEl     = document.getElementById('prefDoubleClickTechFields');
+  if (!enabledEl || !auto360El || !pushEl || !sidebarEl || !dblClickEl) return;
+
+  const subWrap = document.getElementById('ticket360SubPrefs');
+  const applyTicket360Lock = () => {
+    if (subWrap) subWrap.hidden = !enabledEl.checked;
+  };
 
   loadPreferences().then(prefs => {
+    enabledEl.checked  = prefs.ticket360Enabled !== false;
     auto360El.checked  = !!prefs.auto360;
     pushEl.checked     = !!prefs.drawer360Push;
     sidebarEl.checked  = !!prefs.hideHaloSidebar;
+    dblClickEl.checked = prefs.doubleClickTechFields !== false;
+    applyTicket360Lock();
   });
 
   const persist = () => savePreferences({
-    auto360:         auto360El.checked,
-    drawer360Push:   pushEl.checked,
-    hideHaloSidebar: sidebarEl.checked,
+    ticket360Enabled:      enabledEl.checked,
+    auto360:               auto360El.checked,
+    drawer360Push:         pushEl.checked,
+    hideHaloSidebar:       sidebarEl.checked,
+    doubleClickTechFields: dblClickEl.checked,
   });
 
+  enabledEl.addEventListener('change', () => { applyTicket360Lock(); persist(); });
   auto360El.addEventListener('change', persist);
   pushEl.addEventListener('change', persist);
   sidebarEl.addEventListener('change', persist);
+  dblClickEl.addEventListener('change', persist);
 }
 
 document.addEventListener('DOMContentLoaded', init);
