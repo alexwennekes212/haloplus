@@ -8,6 +8,9 @@
 - `chrome.scripting.registerContentScripts` errors used to be swallowed silently when permission was missing. The service worker now records the last registration error to `chrome.storage.local` (`huCustomDomainLastError`) so the panel can surface it.
 - Adding a custom Halo domain with a port (`halo.example.com:8080`) used to silently strip the port and save a pattern that never matched. The Settings form now refuses domains with ports and explains that Chrome's permission system covers the host on any port.
 
+### Diagnostics
+- Added a **Diagnostics** card to Settings → Help & About. **Run diagnostics** runs a live check of Chrome permission status per saved domain, whether the dynamic content script is registered for each match, the active tab's URL, and whether the content script responds on it. **Copy diagnostics** puts a plain-text summary on the clipboard so users can share their state with support without using DevTools.
+
 ## 1.1.0
 
 ### Preferences

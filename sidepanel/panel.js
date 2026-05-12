@@ -88,6 +88,7 @@ async function init() {
   setupViewerEvents();
   setupUtilityEvents();
   setupRegrantButton();
+  setupDiagnostics();
   listenForContext();
   await refreshActiveTabState();
 
@@ -1734,6 +1735,175 @@ function setupRegrantButton() {
       setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 4000);
     }
   });
+}
+
+// --- Diagnostics card ---------------------------------------------------------
+
+let lastDiagnostics = null;
+
+function setupDiagnostics() {
+  const runBtn = document.getElementById('runDiagnosticsBtn');
+  const copyBtn = document.getElementById('copyDiagnosticsBtn');
+  if (runBtn) runBtn.addEventListener('click', runDiagnostics);
+  if (copyBtn) copyBtn.addEventListener('click', copyDiagnostics);
+}
+
+function runDiagnostics() {
+  const runBtn = document.getElementById('runDiagnosticsBtn');
+  const list = document.getElementById('diagList');
+  if (!list) return;
+  if (runBtn) { runBtn.disabled = true; runBtn.textContent = 'Running…'; }
+  list.innerHTML = '<div class="diag-empty">Collecting diagnostics…</div>';
+
+  chrome.runtime.sendMessage({ type: 'HU_GET_DIAGNOSTICS' }, response => {
+    if (runBtn) { runBtn.disabled = false; runBtn.textContent = 'Run diagnostics'; }
+    if (chrome.runtime.lastError || !response || !response.ok) {
+      const err = (response && response.error) || (chrome.runtime.lastError && chrome.runtime.lastError.message) || 'Unknown error';
+      list.innerHTML = '<div class="diag-empty">Diagnostics failed: ' + escapeHtml(err) + '</div>';
+      return;
+    }
+    lastDiagnostics = response.data;
+    renderDiagnostics(response.data);
+    const copyBtn = document.getElementById('copyDiagnosticsBtn');
+    if (copyBtn) copyBtn.disabled = false;
+  });
+}
+
+function renderDiagnostics(data) {
+  const list = document.getElementById('diagList');
+  if (!list) return;
+  list.innerHTML = '';
+
+  list.appendChild(makeDiagGroup('Extension', [
+    diagRow('ok', 'HaloPlus version', data.extensionVersion)
+  ]));
+
+  if (!data.savedDomains || !data.savedDomains.length) {
+    list.appendChild(makeDiagGroup('Custom Halo domains', [
+      diagRow('unknown', 'No custom domains saved', 'Add one in the Domains card above if you use a non-standard Halo URL.')
+    ]));
+  } else {
+    const rows = [];
+    data.savedDomains.forEach(domain => {
+      const permResult = (data.permissionsPerDomain || []).find(p => p.match === domain) || { granted: false };
+      const isRegistered = (data.registeredMatches || []).includes(domain);
+      const displayHost = domain.replace(/^https?:\/\//, '').replace(/\/\*$/, '');
+      rows.push(diagRow(
+        permResult.granted ? 'ok' : 'bad',
+        'Chrome permission · ' + displayHost,
+        permResult.granted ? 'Granted' : 'Not granted — click Re-grant on the Halo banner above'
+      ));
+      rows.push(diagRow(
+        isRegistered ? 'ok' : 'bad',
+        'Content script registered · ' + displayHost,
+        isRegistered ? 'Registered for injection' : 'Not registered — remove and re-add this domain'
+      ));
+    });
+    list.appendChild(makeDiagGroup('Custom Halo domains', rows));
+  }
+
+  const tabRows = [];
+  if (data.activeTab && data.activeTab.url) {
+    tabRows.push(diagRow('ok', 'Active tab URL', data.activeTab.url));
+    if (data.contentScriptReachable === true) {
+      tabRows.push(diagRow('ok', 'Content script responding', 'HaloPlus is active on this page.'));
+    } else if (data.contentScriptReachable === false) {
+      const detail = data.activeTabError
+        ? 'No response — ' + data.activeTabError + '. Try reloading the tab. If that fails, the extension may not be allowed to inject on this URL.'
+        : 'No response. Try reloading the tab.';
+      tabRows.push(diagRow('bad', 'Content script responding', detail));
+    } else {
+      tabRows.push(diagRow('unknown', 'Content script responding', 'Not checked.'));
+    }
+  } else {
+    tabRows.push(diagRow('warn', 'Active tab', 'No active tab detected.'));
+  }
+  list.appendChild(makeDiagGroup('Active tab', tabRows));
+
+  if (data.lastRegistrationError) {
+    list.appendChild(makeDiagGroup('Last registration error', [
+      diagRow('bad', 'Error', data.lastRegistrationError)
+    ]));
+  }
+}
+
+function makeDiagGroup(title, rows) {
+  const wrap = document.createElement('div');
+  wrap.className = 'diag-group';
+  const titleEl = document.createElement('span');
+  titleEl.className = 'diag-group-title';
+  titleEl.textContent = title;
+  wrap.appendChild(titleEl);
+  rows.forEach(r => wrap.appendChild(r));
+  return wrap;
+}
+
+function diagRow(status, label, sub) {
+  const row = document.createElement('div');
+  row.className = 'diag-row';
+
+  const icon = document.createElement('span');
+  icon.className = 'diag-icon diag-icon-' + status;
+  icon.textContent = status === 'ok' ? '✓' : status === 'bad' ? '✗' : status === 'warn' ? '!' : '?';
+  row.appendChild(icon);
+
+  const labelWrap = document.createElement('div');
+  const labelEl = document.createElement('span');
+  labelEl.className = 'diag-label';
+  labelEl.textContent = label;
+  labelWrap.appendChild(labelEl);
+  if (sub) {
+    const subEl = document.createElement('span');
+    subEl.className = 'diag-label-sub';
+    subEl.textContent = sub;
+    labelWrap.appendChild(subEl);
+  }
+  row.appendChild(labelWrap);
+
+  return row;
+}
+
+async function copyDiagnostics() {
+  if (!lastDiagnostics) return;
+  const status = document.getElementById('diagCopyStatus');
+  const text = formatDiagnosticsForClipboard(lastDiagnostics);
+  try {
+    await navigator.clipboard.writeText(text);
+    if (status) {
+      status.textContent = 'Copied to clipboard.';
+      setTimeout(() => { status.textContent = ''; }, 3000);
+    }
+  } catch (e) {
+    if (status) status.textContent = 'Copy failed: ' + e.message;
+  }
+}
+
+function formatDiagnosticsForClipboard(d) {
+  const lines = [];
+  lines.push('HaloPlus Diagnostics');
+  lines.push('Generated: ' + (d.timestamp || ''));
+  lines.push('Version: ' + (d.extensionVersion || '?'));
+  lines.push('');
+  lines.push('Saved custom domains:');
+  if (!d.savedDomains || !d.savedDomains.length) {
+    lines.push('  (none)');
+  } else {
+    d.savedDomains.forEach(domain => {
+      const perm = (d.permissionsPerDomain || []).find(p => p.match === domain);
+      const reg = (d.registeredMatches || []).includes(domain);
+      lines.push('  ' + domain);
+      lines.push('    permission granted: ' + (perm && perm.granted ? 'yes' : 'no'));
+      lines.push('    content script registered: ' + (reg ? 'yes' : 'no'));
+    });
+  }
+  lines.push('');
+  lines.push('Active tab:');
+  lines.push('  url: ' + ((d.activeTab && d.activeTab.url) || '(none)'));
+  lines.push('  content script reachable: ' + (d.contentScriptReachable === true ? 'yes' : d.contentScriptReachable === false ? 'no' : 'not checked'));
+  if (d.activeTabError) lines.push('  error: ' + d.activeTabError);
+  lines.push('');
+  lines.push('Last registration error: ' + (d.lastRegistrationError || 'none'));
+  return lines.join('\n');
 }
 
 function listenForContext() {

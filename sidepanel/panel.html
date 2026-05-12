@@ -371,6 +371,20 @@
           </div>
         </div>
 
+        <div class="settings-card">
+          <span class="settings-section-kicker">Troubleshooting</span>
+          <h3 class="settings-section-title">Diagnostics</h3>
+          <p class="settings-section-copy">If HaloPlus isn't detecting your Halo page, run a diagnostic and share the result with support. Click <strong>Copy diagnostics</strong> to put a plain-text summary on your clipboard.</p>
+          <div class="diag-list" id="diagList" aria-live="polite">
+            <div class="diag-empty">Click <em>Run diagnostics</em> to check the extension's current state.</div>
+          </div>
+          <div class="diag-actions">
+            <button class="btn-primary" id="runDiagnosticsBtn" type="button">Run diagnostics</button>
+            <button class="btn-copy" id="copyDiagnosticsBtn" type="button" disabled>Copy diagnostics</button>
+            <span class="diag-status" id="diagCopyStatus" aria-live="polite"></span>
+          </div>
+        </div>
+
         <div class="settings-card about-card">
           <span class="settings-section-kicker">About HaloPlus</span>
           <h3 class="settings-section-title">Built from real Halo friction.</h3>

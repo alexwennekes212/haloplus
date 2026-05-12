@@ -5001,6 +5001,11 @@ ${orderBy}
     observer.observe(document.body, { childList: true, subtree: true });
   }
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'HU_PING') {
+      sendResponse({ ok: true, url: window.location.href });
+      return false;
+    }
+
     if (message.type === 'RUN_HALO_REPORT') {
       runHaloReport(message.data?.sql, message.data?.name)
         .then(data => sendResponse({ ok: true, data }))
