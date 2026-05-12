@@ -59,7 +59,10 @@
   </nav>
 
   <section class="surface-notice" id="nonHaloNotice" style="display:none" aria-live="polite">
-    <strong>Halo page not detected.</strong> Open HaloITSM or HaloPSA in the active tab to use Data Viewer, Schema, and in-page utilities. Settings, Help, and About are still available here.
+    <div id="nonHaloNoticeBody">
+      <strong>Halo page not detected.</strong> Open HaloITSM or HaloPSA in the active tab to use Data Viewer, Schema, and in-page utilities. Settings, Help, and About are still available here.
+    </div>
+    <button class="btn-primary" id="regrantDomainsBtn" type="button" style="display:none; margin-top: 8px;">Re-grant access</button>
   </section>
 
   <section class="tab-content active" id="tab-data-viewer" role="tabpanel">

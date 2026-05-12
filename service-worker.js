@@ -41,17 +41,25 @@ async function registerCustomDomainContentScript() {
   const matches = Array.isArray(data[CUSTOM_DOMAINS_KEY]) ? data[CUSTOM_DOMAINS_KEY] : [];
 
   await unregisterCustomDomainContentScript();
-  if (!matches.length) return { ok: true, count: 0 };
+  if (!matches.length) {
+    chrome.storage.local.set({ huCustomDomainLastError: null });
+    return { ok: true, count: 0 };
+  }
 
-  await registerContentScripts([{
-    id: CUSTOM_CONTENT_SCRIPT_ID,
-    matches,
-    js: ['content/content-script.js'],
-    runAt: 'document_idle',
-    persistAcrossSessions: true
-  }]);
-
-  return { ok: true, count: matches.length };
+  try {
+    await registerContentScripts([{
+      id: CUSTOM_CONTENT_SCRIPT_ID,
+      matches,
+      js: ['content/content-script.js'],
+      runAt: 'document_idle',
+      persistAcrossSessions: true
+    }]);
+    chrome.storage.local.set({ huCustomDomainLastError: null });
+    return { ok: true, count: matches.length };
+  } catch (error) {
+    chrome.storage.local.set({ huCustomDomainLastError: error.message || String(error) });
+    return { ok: false, error: error.message || String(error) };
+  }
 }
 
 // Listen for messages from content script

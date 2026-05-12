@@ -87,6 +87,7 @@ async function init() {
   setupSearch();
   setupViewerEvents();
   setupUtilityEvents();
+  setupRegrantButton();
   listenForContext();
   await refreshActiveTabState();
 
@@ -1655,6 +1656,8 @@ function isHaloUrl(url) {
 function applyHaloAvailability() {
   const haloTabNames = ['data-viewer', 'sql-helper', 'utilities'];
   const note = document.getElementById('nonHaloNotice');
+  const noteBody = document.getElementById('nonHaloNoticeBody');
+  const regrantBtn = document.getElementById('regrantDomainsBtn');
   const utilityStatus = document.getElementById('utilityStatus');
 
   haloTabNames.forEach((tabName) => {
@@ -1672,6 +1675,65 @@ function applyHaloAvailability() {
   if (utilityStatus && !isHaloTab) {
     utilityStatus.textContent = 'Open a Halo tab to use HaloPlus utilities.';
   }
+
+  if (!isHaloTab && noteBody && regrantBtn && customHaloMatches.length) {
+    checkCustomDomainPermission(customHaloMatches).then(granted => {
+      const labels = customHaloMatches
+        .map(m => escapeHtml(m.replace(/^https?:\/\//, '').replace(/\/\*$/, '')))
+        .join(', ');
+      if (granted) {
+        noteBody.innerHTML = '<strong>Halo page not detected.</strong> Open one of your saved custom domains (' + labels +
+          ') or a standard HaloITSM / HaloPSA tab. If your custom-domain page is already open but still not detected, refresh it once.';
+        regrantBtn.style.display = 'none';
+      } else {
+        noteBody.innerHTML = '<strong>Custom Halo domain access was revoked.</strong> Your saved domains (' + labels +
+          ') need permission re-granted after the extension update. Click below, accept the Chrome prompt, then refresh your Halo tab.';
+        regrantBtn.style.display = '';
+      }
+    }).catch(() => {
+      if (regrantBtn) regrantBtn.style.display = 'none';
+    });
+  } else if (regrantBtn) {
+    regrantBtn.style.display = 'none';
+  }
+}
+
+function checkCustomDomainPermission(matches) {
+  if (!matches || !matches.length) return Promise.resolve(true);
+  return new Promise(resolve => {
+    try {
+      chrome.permissions.contains({ origins: matches }, has => resolve(!!has));
+    } catch (e) {
+      resolve(true);
+    }
+  });
+}
+
+function setupRegrantButton() {
+  const btn = document.getElementById('regrantDomainsBtn');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (!customHaloMatches.length) return;
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = 'Requesting access…';
+    try {
+      const granted = await requestHostPermissions(customHaloMatches);
+      if (granted) {
+        await new Promise(resolve => {
+          chrome.runtime.sendMessage({ type: 'HU_REGISTER_CUSTOM_DOMAINS' }, () => resolve());
+        });
+        await refreshActiveTabState();
+        btn.textContent = 'Access granted — refresh your Halo tab';
+      } else {
+        btn.textContent = 'Access not granted. Try again or check Chrome permissions.';
+      }
+    } catch (e) {
+      btn.textContent = 'Error: ' + (e.message || 'Could not re-grant');
+    } finally {
+      setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 4000);
+    }
+  });
 }
 
 function listenForContext() {
@@ -1986,6 +2048,10 @@ function normalizeCustomDomainMatch(value) {
 
   if (!/^https?:$/.test(parsed.protocol) || !parsed.hostname) {
     throw new Error(`Invalid domain: ${raw}`);
+  }
+
+  if (parsed.port) {
+    throw new Error(`Chrome extensions can't grant access to a specific port. Enter "${parsed.hostname}" without ":${parsed.port}" — Chrome's permission covers the host on any port.`);
   }
 
   return `${parsed.protocol}//${parsed.hostname.toLowerCase()}/*`;

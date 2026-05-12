@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1
+
+### Fixes
+- `/client`, `/clients`, `/org`, `/orgs`, `/organisation`, `/organisations` (and US-spelling variants) now resolve to the customer search. Previously only `/c` worked, so users typing the full word saw no command.
+- After upgrading the extension, custom Halo domains saved in Settings were appearing as configured but Chrome had revoked the host permission — silently breaking page detection. The "Halo page not detected" banner now detects this state, names the affected domains, and offers a **Re-grant access** button that re-requests Chrome's permission and re-registers the dynamic content script in one click.
+- `chrome.scripting.registerContentScripts` errors used to be swallowed silently when permission was missing. The service worker now records the last registration error to `chrome.storage.local` (`huCustomDomainLastError`) so the panel can surface it.
+- Adding a custom Halo domain with a port (`halo.example.com:8080`) used to silently strip the port and save a pattern that never matched. The Settings form now refuses domains with ports and explains that Chrome's permission system covers the host on any port.
+
 ## 1.1.0
 
 ### Preferences
