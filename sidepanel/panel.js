@@ -13,8 +13,30 @@ let currentTheme = 'light';
 const THEME_KEY = 'huTheme';
 const SETTINGS_KEY = 'huSettings';
 const CUSTOM_DOMAINS_KEY = 'huCustomHaloDomains';
-const HALO_HOST_PATTERN = /(^|\.)(halopsa\.com|haloitsm\.com|haloservicedesk\.com)$/i;
+// HALO_HOST_PATTERN is provided by shared/constants.js (loaded before this script).
 const RELEASES_URL = 'https://www.gethaloplus.com/releases.html';
+const LAST_SEEN_VERSION_KEY = 'huLastSeenVersion';
+
+// Per-version highlights shown in the "What's new" banner after an update.
+// Keep entries short + end-user focused — implementation/admin internals
+// belong in CHANGELOG.md. Only the entries for the current manifest version
+// are surfaced.
+const RELEASE_HIGHLIGHTS = {
+  '1.2.0': {
+    title: 'What\'s new in HaloPlus 1.2.0',
+    items: [
+      ['Works for non-admin agents', 'Palette searches, Ticket 360, and Action Timeline now use Halo\'s permission-respecting entity APIs instead of /api/Report SQL — admin-level access is no longer required for everyday features.'],
+      ['Custom ticket types in the palette', 'Tenant ticket types (Laptop Request, Peripherals Request, etc.) get their own /slug command with live open-ticket counters and the correct [SR-…] prefix.'],
+      ['Smarter command palette', 'ArrowRight autocompletes a slash command (e.g. /peri → /peripherals-request), partial numeric search surfaces ticket #3079 when you type /i 30, and ticket titles render as [IN-0003079] Summary.'],
+      ['Coloured status pills', 'Ticket results, Ticket 360, and the action timeline show status in your tenant\'s actual Halo colours.'],
+      ['Reworked the Ticket 360 dashboard', 'Edit the summary, customer, assignee, status, priority, notes, time, and flag in place. New SLA donut in the hero, agent/customer profile photos, and a pulsing workflow step while the ticket is in progress.'],
+      ['Better KB results', '/kb hits the correct Halo endpoint and now shows the article category alongside the snippet.'],
+      ['Greyed-out toolbar icon', 'The HaloPlus icon turns grey on non-Halo tabs and lights up on real Halo tenants — easy at-a-glance status.'],
+      ['Diagnostics card', 'Settings → Help & About now reports your Halo role, /api/Report access, per-endpoint API access, and ticket-type loading. Makes "why isn\'t this working for me?" a one-click answer.'],
+      ['Side panel polish', 'Data Viewer and Schema hide gracefully when your role can\'t use them, a one-click Refresh handles post-update stale tabs, and the "features hidden" notice is now plain language.']
+    ]
+  }
+};
 
 const PAGE_RELEVANT_TABLES = {
   ticket:       ['faults', 'actions', 'slahead', 'policy', 'requesttype', 'tstatus', 'flowheader'],
@@ -91,9 +113,80 @@ async function init() {
   setupDiagnostics();
   listenForContext();
   await refreshActiveTabState();
+  showReleaseHighlightsIfNew();
 
   // Auto-refresh schema silently on load (requires an active Halo tab)
   if (isHaloTab) autoRefreshSchema();
+}
+
+async function showReleaseHighlightsIfNew() {
+  let manifestVersion = '';
+  try { manifestVersion = chrome?.runtime?.getManifest?.()?.version || ''; } catch (_) {}
+  if (!manifestVersion) return;
+
+  const data = await new Promise(r => chrome.storage.local.get([LAST_SEEN_VERSION_KEY], r));
+  const lastSeen = data[LAST_SEEN_VERSION_KEY] || '';
+
+  // Fresh install: don't show the banner (would be confusing on first run).
+  // Just record the current version so the next update is detected.
+  if (!lastSeen) {
+    chrome.storage.local.set({ [LAST_SEEN_VERSION_KEY]: manifestVersion });
+    return;
+  }
+
+  if (lastSeen === manifestVersion) return;
+  const highlights = RELEASE_HIGHLIGHTS[manifestVersion];
+  if (!highlights || !highlights.items?.length) {
+    // No highlights for this version — bump the marker silently.
+    chrome.storage.local.set({ [LAST_SEEN_VERSION_KEY]: manifestVersion });
+    return;
+  }
+
+  renderReleaseHighlightsBanner(highlights, manifestVersion);
+}
+
+function renderReleaseHighlightsBanner(highlights, version) {
+  if (document.getElementById('releaseHighlightsBanner')) return;
+
+  const banner = document.createElement('section');
+  banner.id = 'releaseHighlightsBanner';
+  banner.className = 'surface-notice release-highlights';
+
+  const itemsHtml = highlights.items.map(([title, detail]) => `
+    <li>
+      <strong>${escapeHtml(title)}</strong>
+      <span class="release-detail">${escapeHtml(detail)}</span>
+    </li>
+  `).join('');
+
+  banner.innerHTML = `
+    <div class="release-header">
+      <strong>${escapeHtml(highlights.title)}</strong>
+      <button class="release-dismiss" id="releaseDismissBtn" type="button" aria-label="Dismiss">&#x2715;</button>
+    </div>
+    <ul class="release-list">${itemsHtml}</ul>
+    <div class="release-footer">
+      <a href="${escapeHtml(RELEASES_URL)}" target="_blank" rel="noreferrer">View full changelog</a>
+      <button class="btn-primary" id="releaseGotItBtn" type="button">Got it</button>
+    </div>
+  `;
+
+  // Insert as the very first child of the main panel so the banner sits at
+  // the top of every tab (doesn't compete with the non-Halo or SQL-gated
+  // notices, which live just below).
+  const firstNotice = document.getElementById('nonHaloNotice');
+  if (firstNotice?.parentNode) {
+    firstNotice.parentNode.insertBefore(banner, firstNotice);
+  } else {
+    document.body.appendChild(banner);
+  }
+
+  const dismiss = () => {
+    chrome.storage.local.set({ [LAST_SEEN_VERSION_KEY]: version });
+    banner.remove();
+  };
+  document.getElementById('releaseDismissBtn')?.addEventListener('click', dismiss);
+  document.getElementById('releaseGotItBtn')?.addEventListener('click', dismiss);
 }
 
 function autoRefreshSchema() {
@@ -1633,15 +1726,116 @@ async function refreshActiveTabState() {
   }
 
   isHaloTab = Boolean(pageContext) || isHaloUrl(activeUrl);
+  // True when the user IS on a Halo tab but the content script didn't respond.
+  // Typical after a CWS update or fresh install on an already-open Halo tab —
+  // content scripts only inject on new page loads. We tell them to refresh.
+  const needsContentScriptRefresh = !pageContext && isHaloTab;
 
   if (!isHaloTab) {
     updateContextBadge(null);
     applyHaloAvailability();
+    applyContextRefreshNotice(false);
     return;
   }
 
   updateContextBadge(pageContext);
   applyHaloAvailability();
+  applyContextRefreshNotice(needsContentScriptRefresh);
+
+  // Probe /api/Report — Data Viewer + Schema both depend on it. Non-admin
+  // agents 403, so we hide those tabs and surface a clear message rather
+  // than silent broken queries. Fire and forget; gating updates async.
+  refreshReportApiState();
+}
+
+function applyContextRefreshNotice(show) {
+  let notice = document.getElementById('refreshContextNotice');
+  if (show) {
+    if (!notice) {
+      notice = document.createElement('section');
+      notice.id = 'refreshContextNotice';
+      notice.className = 'surface-notice';
+      notice.innerHTML = `
+        <strong>HaloPlus needs a tab refresh.</strong>
+        You're on a Halo page, but HaloPlus can't see it yet — this usually means
+        the extension was just installed or updated. Refresh this tab so HaloPlus
+        can connect.
+        <div style="margin-top:8px;">
+          <button class="btn-primary" id="refreshContextBtn" type="button">Refresh tab</button>
+        </div>
+      `;
+      const nonHaloNotice = document.getElementById('nonHaloNotice');
+      nonHaloNotice?.parentNode?.insertBefore(notice, nonHaloNotice.nextSibling);
+      notice.querySelector('#refreshContextBtn').addEventListener('click', async () => {
+        try {
+          const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tabs?.[0]?.id) await chrome.tabs.reload(tabs[0].id);
+        } catch (_) {}
+        // Re-probe after the reload so the notice disappears when the content
+        // script reports in.
+        setTimeout(() => refreshActiveTabState(), 1500);
+      });
+    }
+    notice.style.display = 'block';
+  } else if (notice) {
+    notice.style.display = 'none';
+  }
+}
+
+async function refreshReportApiState() {
+  let reportApiOk = null;
+  let reportApiError = '';
+  try {
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: 'HU_GET_REPORT_STATUS' }, (r) => {
+        if (chrome.runtime.lastError) resolve(null);
+        else resolve(r);
+      });
+    });
+    if (response?.ok) {
+      reportApiOk = response.reportApiOk;
+      reportApiError = response.reportApiError || '';
+    }
+  } catch (error) {
+    // Stay tri-state on transient failure — gating only fires on explicit `false`.
+  }
+  applyReportApiAvailability(reportApiOk, reportApiError);
+}
+
+function applyReportApiAvailability(reportApiOk, reportApiError) {
+  // Tri-state: true (allow), false (block + show notice), null (unknown — leave as-is).
+  const sqlTabNames = ['data-viewer', 'sql-helper'];
+  const blocked = reportApiOk === false;
+
+  sqlTabNames.forEach((tabName) => {
+    const tabButton = document.querySelector(`.tab[data-tab="${tabName}"]`);
+    const tabPanel = document.getElementById(`tab-${tabName}`);
+    tabButton?.classList.toggle('hidden-no-report-access', blocked);
+    tabPanel?.classList.toggle('hidden-no-report-access', blocked);
+  });
+
+  let notice = document.getElementById('noReportAccessNotice');
+  if (blocked) {
+    if (!notice) {
+      notice = document.createElement('section');
+      notice.id = 'noReportAccessNotice';
+      notice.className = 'surface-notice';
+      // Only surface a reason when Halo's 403 body has actual content. Halo
+      // typically returns an empty body, so we'd otherwise show "(Halo API 403:)".
+      const detail = String(reportApiError || '').replace(/^Halo API \d+:\s*/i, '').trim();
+      const reason = detail ? ` (${detail})` : '';
+      notice.innerHTML = `<strong>Some features are hidden.</strong> Your Halo account doesn't have permission to run reports${reason}, so Data Viewer and Schema have been turned off. Ask a Halo admin to enable the report permission on your role if you need them.`;
+      const nonHaloNotice = document.getElementById('nonHaloNotice');
+      nonHaloNotice?.parentNode?.insertBefore(notice, nonHaloNotice.nextSibling);
+    }
+    notice.style.display = isHaloTab ? 'block' : 'none';
+    // If the active tab has just been hidden, switch to Utilities (which works
+    // without Report access).
+    const activeHidden = document.querySelector('.tab.active.hidden-no-report-access');
+    if (activeHidden) switchToTab('utilities');
+  } else if (notice) {
+    notice.style.display = 'none';
+  }
 }
 
 function isHaloUrl(url) {
@@ -1823,6 +2017,55 @@ function renderDiagnostics(data) {
   if (data.lastRegistrationError) {
     list.appendChild(makeDiagGroup('Last registration error', [
       diagRow('bad', 'Error', data.lastRegistrationError)
+    ]));
+  }
+
+  if (data.page) {
+    const p = data.page;
+
+    // Halo role / impersonation
+    if (p.permissions) {
+      const perm = p.permissions;
+      const roleRows = [
+        diagRow(perm.isAdmin ? 'ok' : 'warn', 'Administrator', perm.isAdmin ? 'Yes — full claim set' : 'No — non-admin agent'),
+        diagRow(perm.canImpersonate ? 'ok' : 'unknown', 'Can impersonate', perm.canImpersonate ? 'Yes (Can_Impersonate_Users)' : 'No'),
+        diagRow(perm.canLogTickets ? 'ok' : 'unknown', 'Can log tickets', perm.canLogTickets ? 'Yes (Can_Log_Tickets)' : 'No'),
+        diagRow('ok', 'Total claims', String(perm.totalClaims || 0))
+      ];
+      if (perm.isImpersonating) {
+        roleRows.push(diagRow('warn', 'Impersonating', `Acting as agent ${perm.currentAgentId} (real: ${perm.parentAgentId})`));
+      }
+      list.appendChild(makeDiagGroup('Halo role', roleRows));
+    }
+
+    // Report API gating
+    const reportStatus = p.reportApiOk === true ? 'ok'
+                       : p.reportApiOk === false ? 'bad'
+                       : 'unknown';
+    const reportSub = p.reportApiOk === true ? 'Data Viewer and Schema work normally.'
+                    : p.reportApiOk === false ? `403 — Data Viewer and Schema are hidden${p.reportApiError ? ' (' + p.reportApiError + ')' : ''}.`
+                    : 'Not probed yet.';
+    list.appendChild(makeDiagGroup('SQL access (/api/Report)', [
+      diagRow(reportStatus, '/api/Report', reportSub)
+    ]));
+
+    // Entity API access per route
+    if (p.entityAccess) {
+      const routeRows = Object.entries(p.entityAccess).map(([route, ok]) => {
+        const status = ok === true ? 'ok' : ok === false ? 'bad' : 'unknown';
+        const sub = ok === true ? '200 — entity-API search works'
+                  : ok === false ? '401/403 — palette command will be greyed out'
+                  : 'Unknown — probe inconclusive (network or 404)';
+        return diagRow(status, '/api/' + route, sub);
+      });
+      list.appendChild(makeDiagGroup('Entity API access', routeRows));
+    }
+
+    // Ticket type loading
+    const ttStatus = p.ticketTypeCount > 0 ? 'ok' : 'warn';
+    const ttDetail = p.ticketTypeCount + ' types loaded · email tag pre-fetch ' + (p.ticketTypeTagsLoaded ? 'complete' : 'pending or skipped');
+    list.appendChild(makeDiagGroup('Custom ticket types', [
+      diagRow(ttStatus, 'Loaded', ttDetail)
     ]));
   }
 }
@@ -2138,7 +2381,7 @@ function setupCustomDomainSettings() {
   });
 
   saveBtn.addEventListener('click', async () => {
-    status.textContent = 'Requesting access...';
+    status.textContent = 'Saving…';
     saveBtn.disabled = true;
 
     try {
@@ -2150,14 +2393,29 @@ function setupCustomDomainSettings() {
         return;
       }
 
+      // Save to storage FIRST, then request permission. Action popups (the
+      // side panel here) lose focus when Chrome's permission prompt appears
+      // and CLOSE — killing this handler mid-await. By writing storage first,
+      // the domain survives the popup death. The service worker's
+      // permissions.onAdded listener then picks up an Allow and re-registers.
+      // Snapshot the previous state so we can roll back on explicit denial.
+      const previousMatches = Array.isArray(customHaloMatches) ? customHaloMatches.slice() : [];
+      await saveCustomHaloDomains(matches);
+      input.value = matches.map(match => match.replace(/\/\*$/, '')).join('\n');
+      status.textContent = `Domain${matches.length === 1 ? '' : 's'} saved. Requesting access…`;
+
       const granted = await requestHostPermissions(matches);
       if (!granted) {
-        status.textContent = 'Domain access was not granted.';
+        // Explicit deny when the popup survived (e.g. settings open in a tab).
+        // Roll back so we don't leave a useless entry. If the popup died with
+        // a deny, this rollback won't run — but isHaloAllowedUrl + the
+        // existing "Re-grant access" banner handle that state too.
+        await saveCustomHaloDomains(previousMatches);
+        input.value = previousMatches.map(m => m.replace(/\/\*$/, '')).join('\n');
+        status.textContent = 'Permission denied. Domain not saved — click Save to try again.';
         return;
       }
 
-      await saveCustomHaloDomains(matches);
-      input.value = matches.map(match => match.replace(/\/\*$/, '')).join('\n');
       status.textContent = `${matches.length} custom domain${matches.length === 1 ? '' : 's'} saved.`;
       await injectIntoActiveCustomDomain(matches);
       await refreshActiveTabState();

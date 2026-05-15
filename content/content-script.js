@@ -38,7 +38,26 @@
     configTree: {},
     configDiscoveryInFlight: new Set(),
     configWarmupProgress: { current: 0, total: 0, sectionLabel: '' },
-    _hidHaloMenu: false
+    _hidHaloMenu: false,
+    permissions: null,
+    permissionsReadAt: 0,
+    reportApiOk: null,        // tri-state: null = unprobed, true / false = result
+    reportApiError: '',
+    reportApiProbedAt: 0,
+    entityAccess: null,       // null = unprobed; { route: true | false | null }
+    entityAccessProbedAt: 0,
+    entityAccessProbeInFlight: null,
+    ticketTypeCounts: {},     // { typeId: openCount } — populated lazily on palette open
+    ticketTypeCountsAt: 0,
+    ticketTypeCountsInFlight: null,
+    ticketTypeTagsLoaded: false,   // once-per-session pre-fetch of email tag overrides
+    ticketTypeTagsInFlight: null,
+    ticketTypeTagsFetched: null,   // Set<typeId> — populated lazily, by typeId
+    ticketTypeCountsFetched: null, // Set<typeId> — same idea for counts
+    ticketTypeCountsLazyInFlight: null,
+    ticketTypeTagsLazyInFlight: null,
+    entityLoaderToken: 0,          // monotonic counter — cancels stale spinner timers
+    openLoaderToken: 0
   };
 
   const REVIEW_DELAY_MS = 5 * 24 * 60 * 60 * 1000;
@@ -207,10 +226,10 @@
   };
   // Maps command keywords to the entity search and navigation definition.
   const ENTITY_SEARCH_MAP = {
-    incident:  { commandId: 'incidents', kind: 'Ticket',     route: 'ticket',   table: 'faults',  id: 'Faultid',  title: 'Symptom',   sub: 'Username',  extraCols: ['AAreaDesc'],                                          searchCols: ['Symptom', 'Username'], optionalSearchCols: ['Symptom2', 'FDescription'], ticketPrefix: 'INC' },
-    incidents: { commandId: 'incidents', kind: 'Ticket',     route: 'ticket',   table: 'faults',  id: 'Faultid',  title: 'Symptom',   sub: 'Username',  extraCols: ['AAreaDesc'],                                          searchCols: ['Symptom', 'Username'], optionalSearchCols: ['Symptom2', 'FDescription'], ticketPrefix: 'INC' },
-    ticket:    { commandId: 'incidents', kind: 'Ticket',     route: 'ticket',   table: 'faults',  id: 'Faultid',  title: 'Symptom',   sub: 'Username',  extraCols: ['AAreaDesc'],                                          searchCols: ['Symptom', 'Username'], optionalSearchCols: ['Symptom2', 'FDescription'], ticketPrefix: 'INC' },
-    tickets:   { commandId: 'incidents', kind: 'Ticket',     route: 'ticket',   table: 'faults',  id: 'Faultid',  title: 'Symptom',   sub: 'Username',  extraCols: ['AAreaDesc'],                                          searchCols: ['Symptom', 'Username'], optionalSearchCols: ['Symptom2', 'FDescription'], ticketPrefix: 'INC' },
+    incident:  { commandId: 'incidents', kind: 'Incident',   route: 'ticket',   table: 'faults',  id: 'Faultid',  title: 'Symptom',   sub: 'Username',  extraCols: ['AAreaDesc'],                                          searchCols: ['Symptom', 'Username'], optionalSearchCols: ['Symptom2', 'FDescription'], ticketPrefix: 'IN', typeMatch: ['incident'] },
+    incidents: { commandId: 'incidents', kind: 'Incident',   route: 'ticket',   table: 'faults',  id: 'Faultid',  title: 'Symptom',   sub: 'Username',  extraCols: ['AAreaDesc'],                                          searchCols: ['Symptom', 'Username'], optionalSearchCols: ['Symptom2', 'FDescription'], ticketPrefix: 'IN', typeMatch: ['incident'] },
+    ticket:    { commandId: 'incidents', kind: 'Ticket',     route: 'ticket',   table: 'faults',  id: 'Faultid',  title: 'Symptom',   sub: 'Username',  extraCols: ['AAreaDesc'],                                          searchCols: ['Symptom', 'Username'], optionalSearchCols: ['Symptom2', 'FDescription'], ticketPrefix: 'IN' },
+    tickets:   { commandId: 'incidents', kind: 'Ticket',     route: 'ticket',   table: 'faults',  id: 'Faultid',  title: 'Symptom',   sub: 'Username',  extraCols: ['AAreaDesc'],                                          searchCols: ['Symptom', 'Username'], optionalSearchCols: ['Symptom2', 'FDescription'], ticketPrefix: 'IN' },
     customer:      { commandId: 'customers', kind: 'Customer',   route: 'customer', table: 'area',    id: 'AArea',    title: 'AAreaDesc', sub: '\'\'',     extraCols: [],                                                     searchCols: ['AAreaDesc'], optionalSearchCols: ['AMemo'], combineWith: ['user'] },
     customers:     { commandId: 'customers', kind: 'Customer',   route: 'customer', table: 'area',    id: 'AArea',    title: 'AAreaDesc', sub: '\'\'',     extraCols: [],                                                     searchCols: ['AAreaDesc'], optionalSearchCols: ['AMemo'], combineWith: ['user'] },
     client:        { commandId: 'customers', kind: 'Customer',   route: 'customer', table: 'area',    id: 'AArea',    title: 'AAreaDesc', sub: '\'\'',     extraCols: [],                                                     searchCols: ['AAreaDesc'], optionalSearchCols: ['AMemo'], combineWith: ['user'] },
@@ -241,15 +260,15 @@
   Object.assign(ENTITY_SEARCH_MAP, {
     i: ENTITY_SEARCH_MAP.incident,
     t: ENTITY_SEARCH_MAP.ticket,
-    prob: { ...ENTITY_SEARCH_MAP.ticket, commandId: 'prob', kind: 'Problem', ticketPrefix: 'PRB' },
-    chg: { ...ENTITY_SEARCH_MAP.ticket, commandId: 'chg', kind: 'Change', ticketPrefix: 'CHG' },
-    req: { ...ENTITY_SEARCH_MAP.ticket, commandId: 'req', kind: 'Request', ticketPrefix: 'REQ' },
-    hr: { ...ENTITY_SEARCH_MAP.ticket, commandId: 'hr', kind: 'HR', ticketPrefix: 'HR', sectionMatch: ['hr', 'human resource'] },
-    fac: { ...ENTITY_SEARCH_MAP.ticket, commandId: 'fac', kind: 'Facilities', ticketPrefix: 'FAC', sectionMatch: ['facilit'] },
-    dft: { ...ENTITY_SEARCH_MAP.ticket, commandId: 'dft', kind: 'Draft Article', ticketPrefix: 'DFT' },
-    mw: { ...ENTITY_SEARCH_MAP.ticket, commandId: 'mw', kind: 'My Work', ticketPrefix: 'MW' },
-    mi: { ...ENTITY_SEARCH_MAP.ticket, commandId: 'mi', kind: 'Major Incident', ticketPrefix: 'MI' },
-    prj: { ...ENTITY_SEARCH_MAP.ticket, commandId: 'prj', kind: 'Project', ticketPrefix: 'PRJ' },
+    prob: { ...ENTITY_SEARCH_MAP.ticket, commandId: 'prob', kind: 'Problem',      ticketPrefix: 'PR', typeMatch: ['problem'] },
+    chg:  { ...ENTITY_SEARCH_MAP.ticket, commandId: 'chg',  kind: 'Change',       ticketPrefix: 'CH', typeMatch: ['change'] },
+    req:  { ...ENTITY_SEARCH_MAP.ticket, commandId: 'req',  kind: 'Request',      ticketPrefix: 'RQ', typeMatch: ['request', 'service'] },
+    hr:   { ...ENTITY_SEARCH_MAP.ticket, commandId: 'hr',   kind: 'HR',           ticketPrefix: 'HR', sectionMatch: ['hr', 'human resource'] },
+    fac:  { ...ENTITY_SEARCH_MAP.ticket, commandId: 'fac',  kind: 'Facilities',   ticketPrefix: 'FA', sectionMatch: ['facilit'] },
+    dft:  { ...ENTITY_SEARCH_MAP.ticket, commandId: 'dft',  kind: 'Draft Article',ticketPrefix: 'DR', typeMatch: ['article', 'draft', 'knowledge'] },
+    mw:   { ...ENTITY_SEARCH_MAP.ticket, commandId: 'mw',   kind: 'My Work',      ticketPrefix: 'MW', assignedToMe: true },
+    mi:   { ...ENTITY_SEARCH_MAP.ticket, commandId: 'mi',   kind: 'Major Incident', ticketPrefix: 'MI', typeMatch: ['major incident', 'major'] },
+    prj:  { ...ENTITY_SEARCH_MAP.ticket, commandId: 'prj',  kind: 'Project',      ticketPrefix: 'PJ', typeMatch: ['project'] },
     c: ENTITY_SEARCH_MAP.customer,
     a: ENTITY_SEARCH_MAP.agent,
     u: ENTITY_SEARCH_MAP.user,
@@ -263,6 +282,487 @@
     team: { commandId: 'team', kind: 'Team', route: 'team', table: 'sectiondetail', id: 'SDid', title: 'SDSectionName', sub: 'SDDepartmentid', searchCols: ['SDSectionName'] },
     rep: { commandId: 'rep', kind: 'Report', route: 'report', table: 'report', id: 'rid', title: 'rname', sub: 'rdesc', searchCols: ['rname', 'rdesc'] }
   });
+
+  // Maps each ENTITY_SEARCH_MAP routeType to the Halo /api/<entity> endpoint.
+  // Used by searchEntityViaApi to replace /api/Report-based SQL searches with
+  // permission-respecting entity-API calls (work for non-admin agents).
+  // Each entry lists candidate response field names for title/subtitle so the
+  // renderer copes with Halo's inconsistent shapes across entity types.
+  const ENTITY_API_CONFIG = {
+    ticket:   { path: '/api/tickets',         listKey: 'tickets',       titleFields: ['summary'],                    subtitleFields: ['user_name', 'client_name'] },
+    customer: { path: '/api/client',          listKey: 'clients',       titleFields: ['name'],                        subtitleFields: ['phonenumber', 'website'] },
+    agent:    { path: '/api/agent',           listKey: null,             titleFields: ['name'],                        subtitleFields: ['email', 'jobtitle', 'team'] },
+    user:     { path: '/api/users',           listKey: 'users',          titleFields: ['name', 'firstname'],          subtitleFields: ['emailaddress', 'email', 'phonenumber'] },
+    asset:    { path: '/api/asset',           listKey: 'assets',         titleFields: ['inventory_number', 'name'],   subtitleFields: ['name', 'assettype_name'] },
+    kb:       { path: '/api/KBArticle',       listKey: 'articles',       titleFields: ['name', 'title', 'abstract'],  subtitleFields: ['description'] },
+    invoice:  { path: '/api/invoice',         listKey: 'invoices',       titleFields: ['third_party_reference', 'invoicenumber', 'name'], subtitleFields: ['name', 'client_name'] },
+    quote:    { path: '/api/quotation',       listKey: 'quotes',         titleFields: ['title', 'name'],              subtitleFields: ['client_name', 'reference'] },
+    purchase: { path: '/api/purchaseorder',   listKey: 'purchaseorders', titleFields: ['title', 'name'],              subtitleFields: ['supplier_name', 'reference'] },
+    site:     { path: '/api/site',            listKey: 'sites',          titleFields: ['name'],                        subtitleFields: ['client_name'] },
+    team:     { path: '/api/team',            listKey: 'teams',          titleFields: ['name'],                        subtitleFields: ['department_name', 'department'] }
+  };
+
+  function pickField(record, fieldNames) {
+    for (const name of fieldNames || []) {
+      const v = record && record[name];
+      if (v == null) continue;
+      if (typeof v === 'string' && v.trim()) return v;
+      if (typeof v === 'number') return String(v);
+      if (typeof v === 'object') {
+        const nested = v.name || v.shortname || v.text;
+        if (nested) return nested;
+      }
+    }
+    return '';
+  }
+
+  // Entity-API search: GET /api/<entity>?search=<term>&count=N. Works for
+  // non-admin agents because each entity endpoint enforces its own view
+  // permission (the agent's "can view tickets/customers/etc." rights).
+  async function searchEntityViaApi(def, searchTerm) {
+    const config = ENTITY_API_CONFIG[def.route];
+    if (!config) return null;  // No API mapping — caller will fall back to SQL
+
+    // Scoped commands filter ticket results client-side. Fetch a bigger
+    // candidate set so the filter has enough rows to find matches.
+    const hasSectionFilter = Array.isArray(def.sectionMatch) && def.sectionMatch.length > 0;
+    const hasTypeFilter    = Array.isArray(def.typeMatch)    && def.typeMatch.length > 0;
+    const hasTypeIdFilter  = def.typeId != null;
+    const needsAssignedToMe = !!def.assignedToMe;
+    const isNumericTerm = !!(searchTerm && /^\d+$/.test(String(searchTerm).trim()));
+    const isTicketRoute = def.route === 'ticket';
+    const needsBigFetch = hasSectionFilter || hasTypeFilter || hasTypeIdFilter ||
+                          needsAssignedToMe || isNumericTerm;
+    const fetchCount = needsBigFetch ? 200 : 20;
+
+    // For numeric ticket searches, Halo's `?search=` doesn't reliably match
+    // partial IDs ("30" → ticket #3079). Skip the server-side search and
+    // filter client-side instead. For non-numeric or non-ticket searches,
+    // keep the server-side `?search=` (faster + finds older records).
+    const params = new URLSearchParams();
+    const useServerSearch = !!searchTerm && !(isNumericTerm && isTicketRoute);
+    if (useServerSearch) params.set('search', String(searchTerm));
+    params.set('count', String(fetchCount));
+    // Server-side type filter for custom ticket types — Halo's actual filter
+    // param is `requesttype` (verified by probing; tickettype_ids et al. are
+    // silently ignored). Client-side typeId filter below is still applied as
+    // belt-and-braces.
+    if (hasTypeIdFilter && isTicketRoute) params.set('requesttype', String(def.typeId));
+
+    const response = await haloApiRequest(`${config.path}?${params.toString()}`);
+    let records = extractEntityList(response, config.listKey);
+
+    // Numeric ticket search: filter the broad fetch by ID-contains
+    if (isNumericTerm && isTicketRoute) {
+      const needle = String(searchTerm).trim();
+      const filtered = records.filter(r => String(r.id || '').includes(needle));
+      // Always try the exact ID lookup as a top hit (covers older tickets
+      // outside the 200 recent results).
+      try {
+        const exact = await haloApiRequest(`${config.path}/${Number(needle)}`);
+        if (exact && exact.id != null) {
+          const byId = new Map();
+          [exact, ...filtered].forEach(r => byId.set(String(r.id), r));
+          records = Array.from(byId.values());
+        } else {
+          records = filtered;
+        }
+      } catch (e) {
+        records = filtered;
+      }
+    }
+
+    const valueText = v => v == null
+      ? ''
+      : (typeof v === 'object' ? (v.name || v.shortname || v.text || '') : String(v));
+
+    // /api/tickets?count=N (list view) returns IDs only for type/team/etc — no
+    // *_name fields. Resolve via Halo's localStorage caches (cache_tickettype,
+    // cache_team, cache_status) so filters and subtitles can match by name +
+    // pick up Halo's per-status colour for the result pill.
+    const typeCache = readHaloCacheLookup('cache_tickettype');
+    const teamCache = readHaloCacheLookup('cache_team');
+    const statusCache = readHaloCacheLookup('cache_status');
+    const lookupStatus = r => {
+      if (!statusCache || r.status_id == null) return null;
+      const row = statusCache.get(Number(r.status_id));
+      if (!row) return null;
+      // Halo's status records carry the chip colour under various keys depending
+      // on tenant version. Take the first non-empty.
+      const colour = row.colour || row.color || row.chip_color || row.status_colour || '';
+      return { name: row.name || row.label || '', colour };
+    };
+    const lookupTypeName = r => {
+      if (r.tickettype && typeof r.tickettype === 'object') return r.tickettype.name || '';
+      if (r.tickettype_name) return String(r.tickettype_name);
+      if (r.tickettype_id != null && typeCache) {
+        const row = typeCache.get(Number(r.tickettype_id));
+        if (row) return row.name || '';
+      }
+      return '';
+    };
+    const lookupTeamInfo = r => {
+      if (r.team_id != null && teamCache) {
+        const row = teamCache.get(Number(r.team_id));
+        if (row) return { name: row.name || '', department: row.department_name || '' };
+      }
+      return { name: valueText(r.team), department: valueText(r.department_name) };
+    };
+
+    if (hasSectionFilter) {
+      const needles = def.sectionMatch.map(s => String(s || '').toLowerCase());
+      records = records.filter(r => {
+        const team = lookupTeamInfo(r);
+        const hay = [
+          team.name, team.department,
+          r.section_name, r.section,
+          lookupTypeName(r) // Halo often models HR/Facilities as ticket types, not teams
+        ].map(valueText).join(' | ').toLowerCase();
+        return needles.some(n => hay.includes(n));
+      });
+    }
+
+    if (hasTypeFilter) {
+      const needles = def.typeMatch.map(s => String(s || '').toLowerCase());
+      records = records.filter(r => {
+        const hay = [lookupTypeName(r), valueText(r.requesttype), valueText(r.type), valueText(r.kind)]
+          .join(' | ').toLowerCase();
+        return needles.some(n => hay.includes(n));
+      });
+    }
+
+    // Custom ticket types from HU.ticketTypeSearchMap carry the numeric typeId
+    // instead of a name-match array. Filter by numeric ID — covers cases where
+    // the server ignored `tickettype_ids` (also defends against mis-keyed
+    // records whose tickettype field uses a non-standard shape).
+    if (hasTypeIdFilter) {
+      const wantedId = Number(def.typeId);
+      records = records.filter(r => {
+        const id = r.tickettype_id != null ? r.tickettype_id
+                 : (r.tickettype && typeof r.tickettype === 'object' ? r.tickettype.id : null);
+        return id != null && Number(id) === wantedId;
+      });
+    }
+
+    if (needsAssignedToMe) {
+      // The current agent's ID comes from Halo's localStorage. P_currloggedonuser
+      // is the parent agent (real logged-in user); currloggedonuser may differ
+      // during impersonation.
+      const myId = Number(localStorage.getItem('P_currloggedonuser')
+                        || localStorage.getItem('currloggedonuser') || 0);
+      if (myId) {
+        records = records.filter(r => Number(r.agent_id) === myId);
+      }
+    }
+
+    if (needsBigFetch) records = records.slice(0, 20);
+
+    return records.map(record => {
+      // Try canonical id fields first, then route-specific aliases. Halo's
+      // /api/<entity> list responses are inconsistent — some return `id`,
+      // others use entity-prefixed names like `kbentry_id` or `entry_id`.
+      const id = record.id != null ? record.id
+               : record.uid != null ? record.uid
+               : record.kbentry_id != null ? record.kbentry_id
+               : record.entry_id != null ? record.entry_id
+               : record.kbarticle_id != null ? record.kbarticle_id
+               : record.kb_id != null ? record.kb_id
+               : null;
+      if (id == null) return null;
+      const rawTitle = pickField(record, config.titleFields) || `${def.kind} ${id}`;
+
+      // Tickets get a richer subtitle: ticket type + user + client (skipping
+      // empties and de-duping). Other entities use the first matching field.
+      let rawSubtitle;
+      if (def.route === 'ticket') {
+        const parts = [
+          lookupTypeName(record),                                            // e.g. "Incident"
+          valueText(record.user_name) || valueText(record.user),             // e.g. "General User"
+          valueText(record.client_name)                                       // e.g. "Pink Academy"
+        ].map(s => String(s || '').trim()).filter(Boolean);
+        rawSubtitle = Array.from(new Set(parts)).slice(0, 3).join(' · ');
+      } else if (def.route === 'kb') {
+        // KB: show category (Halo uses several field names depending on tenant
+        // config — FAQ list vs Category) alongside a short description snippet.
+        const category = pickField(record, [
+          'faqlist_name', 'faq_list_name', 'kb_category', 'category_name',
+          'category_1_display', 'category_1', 'kbcategory_name'
+        ]);
+        const description = pickField(record, ['description', 'abstract']);
+        const parts = [category, description].map(s => String(s || '').trim()).filter(Boolean);
+        rawSubtitle = Array.from(new Set(parts)).slice(0, 2).join(' · ');
+      } else {
+        rawSubtitle = pickField(record, config.subtitleFields);
+      }
+
+      const status = def.route === 'ticket' ? lookupStatus(record) : null;
+
+      return {
+        id,
+        recordId: id,
+        title: formatSearchResultTitle(def, { id, title: rawTitle }),
+        subtitle: String(rawSubtitle || '').trim() || `${def.kind} #${id}`,
+        kind: def.kind,
+        type: 'navigate',
+        status,
+        url: new URL(routeDetail(def.routeType || def.route, id), window.location.origin).href
+      };
+    }).filter(Boolean);
+  }
+
+  // Probe each entity API once on init so the palette can grey out commands
+  // the agent's Halo role doesn't grant access to (e.g. /api/quotation may
+  // 403 for a basic tier). Result is cached for the session; role changes
+  // are rare and reload picks up a fresh probe.
+  async function probeEntityAccess() {
+    if (HU.entityAccessProbeInFlight) return HU.entityAccessProbeInFlight;
+
+    const inflight = (async () => {
+      const routes = Object.keys(ENTITY_API_CONFIG);
+      const probes = await Promise.all(routes.map(async route => {
+        const cfg = ENTITY_API_CONFIG[route];
+        try {
+          await haloApiRequest(`${cfg.path}?count=1`);
+          return [route, true];
+        } catch (e) {
+          // 401/403/permission → definitively no access. Other failures
+          // (network, 500) → null = "unknown, don't gate."
+          const msg = String(e && e.message || '').toLowerCase();
+          const forbidden = msg.includes('401') || msg.includes('403') ||
+                            msg.includes('forbidden') || msg.includes('unauthorized') ||
+                            msg.includes('permission');
+          return [route, forbidden ? false : null];
+        }
+      }));
+      HU.entityAccess = Object.fromEntries(probes);
+      HU.entityAccessProbedAt = Date.now();
+      return HU.entityAccess;
+    })();
+
+    HU.entityAccessProbeInFlight = inflight;
+    try {
+      return await inflight;
+    } finally {
+      HU.entityAccessProbeInFlight = null;
+    }
+  }
+
+  // BASE_COMMAND.id → entity-API route via ENTITY_SEARCH_MAP, falling back to
+  // tenant-defined ticket types in HU.ticketTypeSearchMap so custom types
+  // (e.g. "marketing-request") grey out together with /t when ticket access
+  // is revoked. Returns null for commands that aren't entity-backed.
+  function entityRouteForCommandId(commandId) {
+    if (!commandId) return null;
+    const def = ENTITY_SEARCH_MAP[commandId] || HU.ticketTypeSearchMap[commandId];
+    return (def && def.route) || null;
+  }
+
+  function isEntityCommandDisabled(commandId) {
+    if (!HU.entityAccess) return false;  // unprobed → don't gate
+    const route = entityRouteForCommandId(commandId);
+    if (!route) return false;
+    return HU.entityAccess[route] === false;
+  }
+
+  function entityDisabledTooltip(commandId) {
+    const def = ENTITY_SEARCH_MAP[commandId];
+    const kind = (def && def.kind) || 'this record type';
+    return `Your Halo role doesn't allow viewing ${String(kind).toLowerCase()}.`;
+  }
+
+  // Lazy version: fetch email-tag overrides only for the typeIds the caller
+  // asks about (typically the typeIds currently rendered in the palette).
+  // Skips IDs we've already attempted this session. The bulk /api/TicketType
+  // endpoint redacts these fields for non-admin agents, so we have to hit
+  // /api/TicketType/{id}?includedetails=true per type — but only when needed.
+  async function enrichTicketTypeTags(requestedTypeIds) {
+    if (!HU.ticketTypeTagsFetched) HU.ticketTypeTagsFetched = new Set();
+
+    // Default to all known custom-type IDs if no list was given (back-compat
+    // for callers that still want the eager behaviour).
+    const sourceIds = Array.isArray(requestedTypeIds)
+      ? requestedTypeIds
+      : HU.ticketTypeCommands.map(c => c.typeId);
+
+    const targets = sourceIds
+      .map(Number)
+      .filter(id => Number.isFinite(id) && !HU.ticketTypeTagsFetched.has(id));
+
+    if (!targets.length) return;
+
+    // Mark all targets as in-flight up front so concurrent calls don't double-fetch.
+    targets.forEach(id => HU.ticketTypeTagsFetched.add(id));
+
+    // Find searchMap defs that lack emailTag and ARE in our target list.
+    const queue = [];
+    Object.values(HU.ticketTypeSearchMap).forEach(def => {
+      if (!def || def.typeId == null || def.emailTag) return;
+      if (targets.includes(Number(def.typeId))) queue.push(def);
+    });
+    if (!queue.length) return;
+
+    const concurrency = 4;
+    for (let i = 0; i < queue.length; i += concurrency) {
+      const batch = queue.slice(i, i + concurrency);
+      await Promise.all(batch.map(async def => {
+        try {
+          const detail = await haloApiRequest(
+            `/api/TicketType/${encodeURIComponent(def.typeId)}?includedetails=true`
+          );
+          const start = detail && detail.email_start_tag_override;
+          const end = (detail && detail.email_end_tag_override) || ']';
+          if (start) {
+            def.emailTag = { start, end };
+            def.ticketPrefix = null;  // emailTag wins over the generated 2-letter prefix
+          }
+        } catch (_) {
+          // type stays with the generated prefix; not fatal
+        }
+      }));
+    }
+  }
+
+  // For a built-in scoped command (/prob, /chg, /req, /hr, etc.), find which
+  // typeIds in cache_tickettype match its typeMatch / sectionMatch needles.
+  // Used to sum per-type counts into a single number for the command's chip.
+  function getTypeIdsForBuiltinCommand(commandId) {
+    const def = ENTITY_SEARCH_MAP[commandId];
+    if (!def) return [];
+    const sectionNeedles = (def.sectionMatch || []).map(s => String(s).toLowerCase());
+    const typeNeedles    = (def.typeMatch    || []).map(s => String(s).toLowerCase());
+    if (!sectionNeedles.length && !typeNeedles.length) return null;  // null = "all"
+    const cache = readHaloCacheLookup('cache_tickettype');
+    if (!cache) return [];
+    const ids = [];
+    cache.forEach((row, id) => {
+      const hay = String(row.name || '').toLowerCase();
+      const match = typeNeedles.some(n => hay.includes(n)) ||
+                    sectionNeedles.some(n => hay.includes(n));
+      if (match) ids.push(id);
+    });
+    return ids;
+  }
+
+  // Resolve a command's open-ticket count from HU.ticketTypeCounts. Returns
+  // undefined when no count can be computed (e.g. counts haven't loaded yet,
+  // or the command isn't ticket-scoped, or it's /mw which filters by agent).
+  // Also returns undefined for 0 — a "0 open" chip is more noise than signal.
+  function getCommandOpenCount(commandId) {
+    if (!HU.ticketTypeCounts || !Object.keys(HU.ticketTypeCounts).length) return undefined;
+    let count;
+    // Custom ticket type: direct typeId lookup.
+    const ttDef = HU.ticketTypeSearchMap[commandId];
+    if (ttDef && ttDef.typeId != null) {
+      count = HU.ticketTypeCounts[ttDef.typeId];
+    } else {
+      // Built-in scoped ticket command: sum counts for all matching typeIds.
+      const builtinDef = ENTITY_SEARCH_MAP[commandId];
+      if (builtinDef && builtinDef.route === 'ticket' && !builtinDef.assignedToMe) {
+        const ids = getTypeIdsForBuiltinCommand(commandId);
+        if (ids === null) {
+          // No type/section filter (/t, /tickets): sum across ALL types.
+          count = Object.values(HU.ticketTypeCounts).reduce((a, b) => a + Number(b || 0), 0);
+        } else if (ids.length) {
+          count = ids.reduce((sum, id) => sum + Number(HU.ticketTypeCounts[id] || 0), 0);
+        }
+      }
+    }
+    return count > 0 ? count : undefined;
+  }
+
+  // Lazy version: fetch open-ticket counts only for the typeIds the caller
+  // passes in (typically the typeIds currently rendered in the palette). IDs
+  // already fetched this session are skipped. Result is merged into the
+  // existing HU.ticketTypeCounts map so subsequent renders pick up the chip.
+  async function refreshTicketTypeCounts(requestedTypeIds) {
+    if (!HU.ticketTypeCountsFetched) HU.ticketTypeCountsFetched = new Set();
+
+    const sourceIds = Array.isArray(requestedTypeIds)
+      ? requestedTypeIds
+      : HU.ticketTypeCommands.map(c => c.typeId);
+
+    const targets = sourceIds
+      .map(Number)
+      .filter(id => Number.isFinite(id) && !HU.ticketTypeCountsFetched.has(id));
+
+    if (!targets.length) return HU.ticketTypeCounts;
+
+    // Mark all as in-flight up front so concurrent calls don't double-fetch.
+    targets.forEach(id => HU.ticketTypeCountsFetched.add(id));
+
+    const concurrency = 3;
+    for (let i = 0; i < targets.length; i += concurrency) {
+      const batch = targets.slice(i, i + concurrency);
+      await Promise.all(batch.map(async typeId => {
+        try {
+          // Halo's filter param for /api/tickets is `requesttype` (verified
+          // by probing). `pageinate=true` makes record_count reflect the
+          // true total instead of echoing page_size.
+          const res = await haloApiRequest(
+            `/api/tickets?requesttype=${encodeURIComponent(typeId)}` +
+            `&open_only=true&pageinate=true&page_no=1&page_size=1`
+          );
+          const n = res && res.record_count;
+          if (n != null && Number.isFinite(Number(n))) HU.ticketTypeCounts[typeId] = Number(n);
+        } catch (_) {
+          // ignore — counter just doesn't render for this type
+        }
+      }));
+    }
+    HU.ticketTypeCountsAt = Date.now();
+    return HU.ticketTypeCounts;
+  }
+
+  // Build the list of typeIds that should be fetched for the commands the
+  // palette is currently about to render. Combines custom-type IDs (direct
+  // typeId on the def) with built-in scoped IDs (resolved via cache_tickettype
+  // name match) and the "all types" set for /t.
+  function collectTypeIdsForCommands(commands) {
+    const ids = new Set();
+    for (const cmd of commands) {
+      if (!cmd || !cmd.id) continue;
+      const ttDef = HU.ticketTypeSearchMap[cmd.id];
+      if (ttDef && ttDef.typeId != null) {
+        ids.add(Number(ttDef.typeId));
+        continue;
+      }
+      const builtin = ENTITY_SEARCH_MAP[cmd.id];
+      if (builtin && builtin.route === 'ticket' && !builtin.assignedToMe) {
+        const matches = getTypeIdsForBuiltinCommand(cmd.id);
+        if (matches === null) {
+          // /t or /tickets — need every typeId for a meaningful sum.
+          const cache = readHaloCacheLookup('cache_tickettype');
+          if (cache) cache.forEach((_row, id) => ids.add(Number(id)));
+        } else {
+          matches.forEach(id => ids.add(Number(id)));
+        }
+      }
+    }
+    return Array.from(ids);
+  }
+
+  // After a render, kick off lazy fetches for any visible commands whose
+  // typeId data we don't have yet, then re-render so the new counters / tag
+  // prefixes appear. Caller passes the commands that were just rendered.
+  function scheduleVisibleCommandFetches(commands) {
+    if (!Array.isArray(commands) || !commands.length) return;
+    const typeIds = collectTypeIdsForCommands(commands);
+    if (!typeIds.length) return;
+    const fetchedCounts = HU.ticketTypeCountsFetched || new Set();
+    const fetchedTags   = HU.ticketTypeTagsFetched   || new Set();
+    const needCounts = typeIds.some(id => !fetchedCounts.has(id));
+    const needTags   = typeIds.some(id => !fetchedTags.has(id));
+    if (!needCounts && !needTags) return;
+
+    const rerender = () => {
+      if (!HU.paletteOpen) return;
+      const input = document.getElementById('hu-palette-input');
+      if (input) runPaletteSearch(input.value);
+    };
+
+    if (needCounts) refreshTicketTypeCounts(typeIds).then(rerender).catch(() => {});
+    if (needTags)   enrichTicketTypeTags(typeIds).then(rerender).catch(() => {});
+  }
 
   const CONFIG_SECTIONS = [
     { label: 'All Features',               slug: 'home',              keywords: ['all', 'features', 'home'] },
@@ -394,13 +894,25 @@
       // Field detection is best effort.
     }
 
+    context.permissions = readHaloPermissions();
+    context.reportApiOk = HU.reportApiOk;
+    context.reportApiError = HU.reportApiError || '';
+
     return context;
   }
 
   function getAccessToken() {
+    // Halo rotates the access_token cookie frequently and the Halo UI itself
+    // reads from the cookie on every request, so prefer it over the older
+    // localStorage / sessionStorage fallbacks.
+    const cookieMatch = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
+    if (cookieMatch) {
+      const v = decodeURIComponent(cookieMatch[1]);
+      if (v) return v;
+    }
+
     const keys = ['access_token', 'halo_access_token', 'token'];
     const stores = [window.localStorage, window.sessionStorage];
-
     for (const store of stores) {
       try {
         for (const key of keys) {
@@ -412,9 +924,7 @@
         // Storage access can be blocked in some contexts.
       }
     }
-
-    const cookieMatch = document.cookie.match(/(?:^|;\s*)access_token=([^;]+)/);
-    return cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+    return '';
   }
 
   function readTokenValue(value) {
@@ -427,6 +937,117 @@
     } catch (e) {
       return '';
     }
+  }
+
+  // Reads the agent's permission claims from localStorage. Halo stores its full
+  // claim set there (synced from /api/Agent/me at login + on impersonation
+  // start/stop), so this is a sync sub-millisecond read that doesn't need
+  // network. Cached for 30s to avoid repeated JSON.parse on every gate check.
+  // NOTE: claims do NOT update on impersonation — they reflect the parent
+  // agent's permissions. `isImpersonating` flags this so gates can ignore the
+  // claims when an impersonation session is active.
+  function readHaloPermissions(forceFresh) {
+    const now = Date.now();
+    if (!forceFresh && HU.permissions && now - HU.permissionsReadAt < 30000) {
+      return HU.permissions;
+    }
+    HU.permissionsReadAt = now;
+
+    try {
+      const arr = JSON.parse(localStorage.getItem('claims') || '[]');
+      const m = {};
+      arr.forEach(c => { if (c && c.type) m[c.type] = String(c.value || ''); });
+
+      const isAdmin = m['Administration'] === 'true';
+      const isTrueish = v => Boolean(v) && v !== '0' && v.toLowerCase() !== 'false';
+      const claimAllows = name => isAdmin || isTrueish(m[name]);
+
+      const currentAgentId = localStorage.getItem('currloggedonuser') || '';
+      const parentAgentId  = localStorage.getItem('P_currloggedonuser') || '';
+      const isImpersonating = !!parentAgentId && parentAgentId !== currentAgentId;
+
+      HU.permissions = {
+        isAdmin,
+        canImpersonate: claimAllows('Can_Impersonate_Users'),
+        canLogTickets:  claimAllows('Can_Log_Tickets'),
+        canEditClosedTickets: claimAllows('Can_Edit_Closed_Tickets'),
+        canRunPowerShell: claimAllows('Can_Run_PowerShell'),
+        claims: m,
+        totalClaims: arr.length,
+        currentAgentId,
+        parentAgentId,
+        isImpersonating,
+        cacheRoles: (localStorage.getItem('cache_roles') || '').split(',').filter(Boolean)
+      };
+    } catch (e) {
+      HU.permissions = {
+        isAdmin: false, canImpersonate: false, claims: {}, totalClaims: 0,
+        currentAgentId: '', parentAgentId: '', isImpersonating: false, cacheRoles: [],
+        error: e.message
+      };
+    }
+    return HU.permissions;
+  }
+
+  // Read one of Halo's localStorage caches (cache_status, cache_tickettype,
+  // cache_agent, cache_team) and return a Map keyed by id. Halo populates
+  // these on every page load, so the data is fresh and avoids extra API calls.
+  function readHaloCacheLookup(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return null;
+      const map = new Map();
+      for (const item of arr) {
+        if (item && item.id != null) map.set(Number(item.id), item);
+      }
+      return map;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getCachedName(cacheKey, id, fallback) {
+    if (id == null || id === '' || id === 0) return fallback || '';
+    const map = readHaloCacheLookup(cacheKey);
+    const item = map && map.get(Number(id));
+    if (!item) return fallback || '';
+    return item.name || item.shortname || fallback || '';
+  }
+
+  function isReportPermissionError(message) {
+    if (!message) return false;
+    const m = String(message).toLowerCase();
+    if (m.includes('401') || m.includes('403')) return true;
+    if (m.includes('forbidden') || m.includes('unauthorized')) return true;
+    if (m.includes('permission') || m.includes('access denied')) return true;
+    if (m.includes('not allowed')) return true;
+    if (m.includes('please contact the administrator')) return true;
+    if (m.includes('contact the administrator')) return true;
+    if (m.includes('contact an administrator')) return true;
+    if (m.includes('contact your administrator')) return true;
+    return false;
+  }
+
+  // Probe /api/Report once on startup (kept for Data Viewer + Schema gating).
+  // Result cached for 60s so the side panel + diagnostics can re-check cheaply.
+  async function probeReportApi(forceFresh) {
+    const now = Date.now();
+    if (!forceFresh && HU.reportApiOk !== null && now - HU.reportApiProbedAt < 60000) {
+      return HU.reportApiOk;
+    }
+    HU.reportApiProbedAt = now;
+    try {
+      await runHaloReport('SELECT TOP 1 Faultid FROM faults', 'HaloPlus Permission Probe');
+      HU.reportApiOk = true;
+      HU.reportApiError = '';
+    } catch (error) {
+      const msg = error && error.message ? error.message : String(error);
+      HU.reportApiOk = isReportPermissionError(msg) ? false : null;
+      HU.reportApiError = msg;
+    }
+    return HU.reportApiOk;
   }
 
   function createReportPayload(sql, name) {
@@ -500,12 +1121,17 @@
   }
 
   async function haloApiRequest(path, options = {}) {
+    // Matches the Halo UI's exact header set for /api/* entity endpoints.
+    // The token MUST be read live from the access_token cookie because Halo
+    // rotates it; cached tokens (localStorage / earlier reads) routinely 401.
     const token = getAccessToken();
     const method = String(options.method || 'GET').toUpperCase();
     const headers = {
       accept: '*/*',
       'content-type': 'application/json',
-      'halo-app-name': 'halo-agent-app'
+      'halo-app-name': 'halo-agent-app',
+      'cache-control': 'no-cache',
+      'pragma': 'no-cache'
     };
 
     if (token) headers.authorization = `Bearer ${token}`;
@@ -536,6 +1162,49 @@
     }
 
     return data;
+  }
+
+  // Unwrap Halo's inconsistent entity-list response shapes.
+  // - Bare array  (e.g. /api/agent)                          → returns the array
+  // - { record_count, <named array> }  (e.g. /api/tickets)   → returns the named array
+  // - Single object  (e.g. /api/tickets/{id})                → returns [object]
+  function extractEntityList(response, preferredKey) {
+    if (!response) return [];
+    if (Array.isArray(response)) return response;
+    if (preferredKey && Array.isArray(response[preferredKey])) return response[preferredKey];
+    // Try the conventional keys Halo uses
+    const commonKeys = ['tickets', 'clients', 'users', 'agents', 'sites', 'assets',
+                        'quotes', 'quotations', 'invoices', 'purchaseorders',
+                        'articles', 'kbarticles', 'kbentries', 'entries',
+                        'teams', 'statuses',
+                        'actions', 'records', 'data', 'results'];
+    for (const k of commonKeys) {
+      if (Array.isArray(response[k])) return response[k];
+    }
+    // Last-resort: find any array-valued property on the wrapper object.
+    // Covers Halo endpoints whose envelope key we haven't enumerated yet.
+    if (response && typeof response === 'object') {
+      for (const k of Object.keys(response)) {
+        if (Array.isArray(response[k]) && response[k].length && typeof response[k][0] === 'object') {
+          return response[k];
+        }
+      }
+    }
+    // Single-object responses (e.g. /api/tickets/{id}) — wrap in an array
+    if (typeof response === 'object') return [response];
+    return [];
+  }
+
+  // Convenience: GET /api/<entity>?search=<term>&count=<n>
+  async function searchHaloEntity(entityPath, options = {}) {
+    const params = new URLSearchParams();
+    if (options.search) params.set('search', options.search);
+    if (options.count)  params.set('count',  String(options.count));
+    if (options.extra)  Object.entries(options.extra).forEach(([k, v]) => params.set(k, String(v)));
+    const qs = params.toString();
+    const url = qs ? `${entityPath}?${qs}` : entityPath;
+    const response = await haloApiRequest(url);
+    return extractEntityList(response, options.listKey);
   }
 
   function getCurrentTicketId() {
@@ -911,6 +1580,23 @@ FROM (
       }
       .hu-result > span:first-child { min-width: 0; }
       .hu-result.hu-active, .hu-result:hover { background: #eef4ff; }
+      .hu-result.hu-disabled { opacity: 0.45; cursor: not-allowed; }
+      .hu-result.hu-disabled:hover, .hu-result.hu-disabled.hu-active { background: transparent; }
+      .hu-result.hu-result-loading { cursor: default; opacity: 0.85; }
+      .hu-result.hu-result-loading:hover, .hu-result.hu-result-loading.hu-active { background: transparent; }
+      .hu-palette .hu-status-pill {
+        display: inline-block; padding: 1px 6px; margin-right: 6px;
+        font-size: calc(9.5px * var(--hu-palette-font-scale)); font-weight: 600;
+        line-height: 1.35; color: #fff; border-radius: 8px;
+        text-shadow: 0 1px 1px rgba(0,0,0,0.18); vertical-align: 1px;
+        max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .hu-spinner {
+        display: inline-block; width: 12px; height: 12px; margin-right: 8px;
+        border: 2px solid #d8dde8; border-top-color: #2196f3; border-radius: 50%;
+        animation: hu-spin 0.6s linear infinite; vertical-align: -1px;
+      }
+      @keyframes hu-spin { to { transform: rotate(360deg); } }
       .hu-palette .hu-result-title { display: block; font-size: calc(12.5px * var(--hu-palette-font-scale)); line-height: 1.25; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .hu-palette .hu-result-sub { display: block; margin-top: 1px; color: #667085; font-size: calc(10.5px * var(--hu-palette-font-scale)); line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .hu-palette .hu-result-kind { color: #6a7280; font-size: calc(10px * var(--hu-palette-font-scale)); line-height: 1; align-self: center; border: 1px solid #e0e5ee; border-radius: 5px; padding: 2px 5px; }
@@ -964,10 +1650,14 @@ FROM (
         background: #fff;
         border: 1px solid #e3e7ef;
         border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 10px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
         box-shadow: 0 3px 10px rgba(8, 16, 30, 0.04);
       }
+      /* Tighter section titles inside Ticket 360 cards */
+      #hu-ticket360-drawer .hu-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #5e7290; margin-bottom: 6px; }
+      #hu-ticket360-drawer .hu-section-title-row { margin-bottom: 6px; }
+      #hu-ticket360-drawer .hu-card:last-child { margin-bottom: 0; }
       .hu-ticket-hero {
         display: flex;
         align-items: flex-start;
@@ -977,14 +1667,14 @@ FROM (
         border-color: rgba(255, 155, 81, 0.25);
         color: #fff;
       }
-      .hu-ticket-hero-main { min-width: 0; }
+      .hu-ticket-hero-main { min-width: 0; width: 100%; }
+      .hu-ticket-id-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
       .hu-ticket-id {
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.4px;
         text-transform: uppercase;
         color: rgba(255,255,255,0.68);
-        margin-bottom: 4px;
       }
       .hu-ticket-summary {
         font-size: 15px;
@@ -1097,6 +1787,169 @@ FROM (
       button#hu-360-inject-btn { background: #fe9200 !important; border-color: #fe9200 !important; color: #fff !important; transition: background 0.15s, border-color 0.15s !important; }
       button#hu-360-inject-btn:hover { background: #e68400 !important; border-color: #e68400 !important; }
       button#hu-360-inject-btn.is-active { background: #bf6e00 !important; border-color: #bf6e00 !important; box-shadow: 0 0 0 3px rgba(254,146,0,0.25) !important; }
+
+      /* Ticket 360 v2 — banners (VIP, approval, major incident) */
+      .hu-360-banners { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+      .hu-360-banner { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; font-size: 12px; border: 1px solid; }
+      .hu-360-banner-icon { font-size: 14px; font-weight: 700; flex-shrink: 0; width: 18px; text-align: center; }
+      .hu-360-banner-text { font-weight: 600; }
+      .hu-360-banner-vip       { background: rgba(168,85,247,0.10); border-color: rgba(168,85,247,0.35); color: #8b3aef; }
+      .hu-360-banner-important { background: rgba(245,158,11,0.10); border-color: rgba(245,158,11,0.35); color: #b07209; }
+      .hu-360-banner-approval  { background: rgba(59,130,246,0.10); border-color: rgba(59,130,246,0.35); color: #2563eb; }
+      .hu-360-banner-major     { background: rgba(239,68,68,0.12);  border-color: rgba(239,68,68,0.40);  color: #c92626; }
+
+      /* Aging + activity chips inside the hero card */
+      .hu-360-aging { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+      .hu-360-aging-chip { font-size: 10.5px; color: #667085; background: #f1f4fa; border: 1px solid #e3e7ef; border-radius: 99px; padding: 1px 8px; }
+
+      /* Quick-action pill buttons (text + icon) in hero top-right.
+         Solid white background with dark text — works clearly on the dark
+         hero gradient in both themes (gradient is fixed regardless of theme). */
+      .hu-360-quick-actions { display: inline-flex; gap: 5px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; max-width: 65%; }
+      .hu-360-quick-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 11.5px; font-weight: 600; line-height: 1;
+        color: #1a2236;
+        background: #ffffff;
+        border: 1px solid rgba(255,255,255,0.92);
+        border-radius: 99px; padding: 5px 11px;
+        text-decoration: none; cursor: pointer;
+        transition: background 0.12s, transform 0.08s, box-shadow 0.12s;
+        white-space: nowrap;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      }
+      .hu-360-quick-btn:hover {
+        background: #ff9b51;
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(255,155,81,0.45);
+      }
+      .hu-360-quick-btn:active { transform: scale(0.96); }
+      .hu-360-quick-btn svg { flex-shrink: 0; }
+
+      /* Combined Status & SLA card */
+      .hu-360-status-card { padding: 10px 12px; }
+      .hu-360-status-top { display: flex; gap: 12px; align-items: flex-start; }
+      .hu-360-status-arc { flex-shrink: 0; margin-top: -4px; }
+      .hu-360-status-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+      .hu-360-meta-row { display: flex; gap: 8px; font-size: 11.5px; line-height: 1.35; min-width: 0; }
+      .hu-360-meta-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #667085; min-width: 64px; flex-shrink: 0; padding-top: 1px; }
+      .hu-360-meta-value { color: #172033; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+      .hu-360-meta-step { display: inline-flex; align-items: center; gap: 6px; }
+      .hu-360-workflow-dot { width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.22); flex-shrink: 0; }
+      .hu-360-status-bars { margin-top: 10px; padding-top: 10px; border-top: 1px solid #edf0f5; display: flex; flex-direction: column; gap: 8px; }
+
+      /* SLA bars (used inside combined status card) */
+      .hu-360-sla-row { min-width: 0; }
+      .hu-360-sla-label-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; }
+      .hu-360-sla-label { font-weight: 600; color: #172033; }
+      .hu-360-sla-due { font-variant-numeric: tabular-nums; font-size: 10.5px; }
+      .hu-360-sla-track { height: 4px; background: #edf0f5; border-radius: 99px; overflow: hidden; }
+      .hu-360-sla-fill { height: 100%; border-radius: 99px; transition: width 0.3s; }
+
+      /* People card v2 — customer joined into one line; assigned to is a clickable picker */
+      .hu-360-people { padding: 10px 12px; }
+      .hu-360-cust-row, .hu-360-assign-row { display: flex; align-items: flex-start; gap: 10px; padding: 4px 0; min-width: 0; }
+      .hu-360-assign-row { border-top: 1px solid #edf0f5; padding-top: 8px; margin-top: 6px; }
+      .hu-360-cust-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #5e7290; min-width: 78px; padding-top: 3px; flex-shrink: 0; }
+      .hu-360-cust-value { flex: 1; font-size: 12.5px; color: #172033; line-height: 1.4; min-width: 0; }
+      .hu-360-cust-link { color: #2563eb; text-decoration: none; }
+      .hu-360-cust-link:hover { text-decoration: underline; }
+      .hu-360-cust-text { color: #172033; }
+      .hu-360-cust-sep { color: #c5cad3; margin: 0 6px; }
+      .hu-360-assign-value { flex: 1; min-width: 0; }
+      .hu-360-assign-trigger {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 12.5px; font-weight: 600; color: #172033;
+        background: #f1f4fa; border: 1px solid #d8dde8;
+        border-radius: 6px; padding: 4px 10px; cursor: pointer;
+        max-width: 100%;
+      }
+      .hu-360-assign-trigger:hover { background: #e2e8f3; border-color: #b9c1d1; }
+      .hu-360-assign-trigger svg { opacity: 0.5; flex-shrink: 0; }
+      .hu-360-assign-extras { font-size: 10.5px; color: #5e7290; margin-top: 4px; line-height: 1.35; }
+
+      /* Agent picker popover */
+      .hu-360-agent-pop {
+        z-index: 2147483600;
+        background: #fff;
+        border: 1px solid #d8dde8;
+        border-radius: 8px;
+        box-shadow: 0 12px 36px rgba(8,16,30,0.18);
+        max-height: 320px; display: flex; flex-direction: column;
+        overflow: hidden;
+      }
+      .hu-360-agent-search {
+        border: 0; border-bottom: 1px solid #edf0f5;
+        padding: 8px 10px; font-size: 12px; outline: none;
+        background: transparent; color: #172033;
+      }
+      /* No top/bottom padding on the list — sticky team headers stick flush
+         to the top edge (any padding here was leaking content above them). */
+      .hu-360-agent-list { overflow-y: auto; max-height: 260px; padding: 0; }
+      .hu-360-agent-row {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        width: 100%; padding: 6px 10px; border: 0; background: transparent;
+        text-align: left; cursor: pointer; border-radius: 0;
+        font-size: 12px; color: #172033;
+      }
+      .hu-360-agent-row:hover, .hu-360-agent-row:focus {
+        background: #eef4ff; outline: none;
+      }
+      .hu-360-agent-row:disabled { opacity: 0.55; cursor: progress; }
+      .hu-360-agent-team-hdr {
+        font-size: 10px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.06em; color: #5e7290;
+        padding: 8px 10px 4px;
+        position: sticky; top: 0; background: #fff; z-index: 2;
+        /* Slight bottom border for visual separation when sticky */
+        border-bottom: 1px solid rgba(0,0,0,0.04);
+      }
+      html.hu-theme-dark .hu-360-agent-team-hdr {
+        color: #94a3b8; background: #1a2236;
+        border-bottom-color: rgba(255,255,255,0.05);
+      }
+      .hu-360-agent-name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      .hu-360-agent-team { font-size: 10.5px; color: #5e7290; flex-shrink: 0; }
+      .hu-360-agent-status { padding: 4px 10px 8px; font-size: 10.5px; color: #5e7290; }
+
+      /* Custom fields grid */
+      .hu-360-field-count { font-size: 10.5px; color: #667085; background: #f1f4fa; border-radius: 99px; padding: 1px 7px; margin-left: 6px; font-weight: 500; }
+      .hu-360-cf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-top: 8px; }
+      .hu-360-cf-cell { min-width: 0; }
+      .hu-360-cf-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #667085; margin-bottom: 2px; }
+      .hu-360-cf-value { font-size: 12px; color: #172033; overflow-wrap: break-word; }
+
+      /* Status-transitions mini timeline */
+      .hu-360-trans-track { display: flex; align-items: flex-start; gap: 4px; margin-top: 8px; overflow-x: auto; padding-bottom: 4px; }
+      .hu-360-trans-step { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; min-width: 64px; }
+      .hu-360-trans-dot { width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; margin-bottom: 4px; }
+      .hu-360-trans-label { font-size: 10.5px; font-weight: 600; color: #172033; text-align: center; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .hu-360-trans-time { font-size: 9.5px; color: #94a3b8; margin-top: 1px; }
+      .hu-360-trans-arrow { color: #cbd5e1; font-size: 14px; margin-top: 1px; align-self: center; flex-shrink: 0; }
+
+      /* KB suggestion */
+      .hu-360-kb { border-left: 3px solid #3b82f6; }
+      .hu-360-kb-title { font-size: 13px; font-weight: 700; color: #172033; margin-top: 6px; }
+      .hu-360-kb-abstract { font-size: 11.5px; color: #5e7290; line-height: 1.45; margin-top: 4px; }
+      .hu-360-kb-open { font-size: 11px; color: #2563eb; text-decoration: none; font-weight: 600; }
+      .hu-360-kb-open:hover { text-decoration: underline; }
+
+      /* Linked records */
+      .hu-360-linked-group { margin-top: 8px; }
+      .hu-360-linked-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #667085; margin-bottom: 4px; }
+      .hu-360-linked-count { background: #f1f4fa; color: #667085; border-radius: 99px; padding: 0 6px; font-size: 10px; font-weight: 600; margin-left: 4px; letter-spacing: 0; text-transform: none; }
+      .hu-360-linked-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+      .hu-360-linked-chip { font-size: 11px; color: #2563eb; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.20); border-radius: 99px; padding: 2px 9px; text-decoration: none; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .hu-360-linked-chip:hover { background: rgba(59,130,246,0.18); }
+
+      /* Similar tickets */
+      .hu-360-similar-avg { font-size: 10.5px; color: #667085; font-weight: 500; }
+      .hu-360-similar-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; text-decoration: none; color: inherit; border-bottom: 1px solid #edf0f5; }
+      .hu-360-similar-row:last-child { border-bottom: 0; }
+      .hu-360-similar-row:hover { background: #f8fafc; }
+      .hu-360-similar-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+      .hu-360-similar-title { font-size: 12px; color: #172033; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .hu-360-similar-meta { font-size: 10.5px; color: #94a3b8; flex-shrink: 0; }
       @media (prefers-color-scheme: dark) {
         .hu-360-kpi { background: #151d2c; border-color: #2b3548; }
         .hu-360-kpi-value { color: #edf1f7; }
@@ -1104,6 +1957,24 @@ FROM (
         .hu-360-tl-line { background: #2b3548; }
         .hu-360-tl-title { color: #edf1f7; }
         .hu-360-tl-note { background: #151d2c; border-color: #2b3548; color: #a7afbd; }
+        .hu-360-aging-chip { background: #1d2a42; border-color: #2b3548; color: #a7afbd; }
+        .hu-360-workflow-step-name { color: #edf1f7; }
+        .hu-360-workflow-name { color: #a7afbd; }
+        .hu-360-workflow-seq { background: #1d2a42; color: #a7afbd; }
+        .hu-360-sla-track { background: #2b3548; }
+        .hu-360-sla-label { color: #edf1f7; }
+        .hu-360-sla-due, .hu-360-sla-label-row { color: #a7afbd; }
+        .hu-360-cf-label { color: #a7afbd; }
+        .hu-360-cf-value { color: #edf1f7; }
+        .hu-360-field-count { background: #1d2a42; color: #a7afbd; }
+        .hu-360-trans-label { color: #edf1f7; }
+        .hu-360-trans-arrow { color: #475569; }
+        .hu-360-kb-title { color: #edf1f7; }
+        .hu-360-kb-abstract { color: #a7afbd; }
+        .hu-360-similar-title { color: #edf1f7; }
+        .hu-360-similar-row { border-bottom-color: #2b3548; }
+        .hu-360-similar-row:hover { background: #1d2a42; }
+        .hu-360-linked-count { background: #1d2a42; color: #a7afbd; }
       }
       @media (prefers-color-scheme: dark) {
         .hu-palette, .hu-drawer { background: #171b22; color: #edf1f7; border-color: #303744; }
@@ -1126,6 +1997,29 @@ FROM (
         .hu-stat-link:hover, .hu-list-row-link:hover { background: #1d2533; border-color: #35507c; }
         .hu-stat-label, .hu-stat-sub, .hu-list-meta, .hu-list-row-sub, .hu-empty-note { color: #a7afbd; }
         .hu-list-row { background: #151d2c; border-color: #2b3548; }
+        /* Ticket 360 v2 dark-mode overrides — the new card text uses
+           #172033 by default, which is invisible on the dark card surface. */
+        #hu-ticket360-drawer .hu-section-title { color: #94a3b8; }
+        .hu-360-meta-value { color: #edf1f7; }
+        .hu-360-meta-label { color: #94a3b8; }
+        .hu-360-sla-label { color: #edf1f7; }
+        .hu-360-sla-due { color: #a7afbd; }
+        .hu-360-sla-track { background: #2b3548; }
+        .hu-360-status-bars { border-top-color: #2b3548; }
+        .hu-360-cust-value, .hu-360-cust-text { color: #edf1f7; }
+        .hu-360-cust-label { color: #94a3b8; }
+        .hu-360-cust-link { color: #6aa8ff; }
+        .hu-360-cust-sep { color: #475569; }
+        .hu-360-assign-row { border-top-color: #2b3548; }
+        .hu-360-assign-trigger { background: #1d2a42; border-color: #303744; color: #edf1f7; }
+        .hu-360-assign-trigger:hover { background: #243154; border-color: #404b62; }
+        .hu-360-assign-extras { color: #a7afbd; }
+        .hu-360-agent-pop { background: #1a2236; border-color: #303744; box-shadow: 0 12px 36px rgba(0,0,0,0.5); }
+        .hu-360-agent-search { background: transparent; color: #edf1f7; border-bottom-color: #303744; }
+        .hu-360-agent-row { color: #edf1f7; }
+        .hu-360-agent-row:hover, .hu-360-agent-row:focus { background: #1d2a42; }
+        .hu-360-agent-team { color: #94a3b8; }
+        .hu-360-agent-status { color: #94a3b8; }
       }
       .hu-tbl-export-bar { display: flex; justify-content: flex-end; margin-bottom: 4px; }
       .hu-tbl-export-bar.hu-tbl-export-inline {
@@ -1223,6 +2117,733 @@ FROM (
       }
       @media (prefers-color-scheme: dark) {
       }
+
+      /* ====================================================================
+         Ticket 360 v3 — fixed dark drawer with flat sections + hairline dividers.
+         All rules below scoped to #hu-ticket360-drawer so other drawers (action
+         timeline, JSON inspector, etc.) keep their existing light/dark styling.
+      ==================================================================== */
+      /* NOTE: don't override position/width/right/top/bottom here — the base
+         .hu-drawer rule already provides position: fixed and the inline-style
+         push-mode also sets those. We only theme the surface + add the stripe. */
+      #hu-ticket360-drawer.hu-drawer {
+        background: #0f1218; color: rgba(255,255,255,0.92);
+        border-left: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui, sans-serif;
+        font-size: 13px; line-height: 1.45;
+      }
+      #hu-ticket360-drawer.hu-drawer::before {
+        content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+        background: #538dba; z-index: 1; pointer-events: none;
+        border-radius: 8px 0 0 8px;
+      }
+      #hu-ticket360-drawer .hu-drawer-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+        background: transparent;
+      }
+      #hu-ticket360-drawer .hu-drawer-title {
+        font-size: 12px; font-weight: 500; letter-spacing: 0.04em;
+        text-transform: uppercase; color: rgba(255,255,255,0.55);
+      }
+      #hu-ticket360-drawer .hu-icon-btn {
+        width: 24px; height: 24px; display: inline-flex; align-items: center;
+        justify-content: center; color: rgba(255,255,255,0.55);
+        background: transparent; border: 0; border-radius: 6px; cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+      }
+      #hu-ticket360-drawer .hu-icon-btn:hover {
+        background: rgba(255,255,255,0.06); color: #fff;
+      }
+      #hu-ticket360-drawer .hu-360-loading-indicator {
+        display: inline-flex; align-items: center; justify-content: center;
+        margin-right: 6px;
+      }
+      .hu-360-spinner {
+        display: inline-block; width: 12px; height: 12px;
+        border: 2px solid rgba(255,255,255,0.18);
+        border-top-color: rgba(255,255,255,0.75);
+        border-radius: 50%; animation: hu-spin 0.7s linear infinite;
+      }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-spinner {
+        border-color: rgba(0,0,0,0.10);
+        border-top-color: #2563eb;
+      }
+      #hu-ticket360-drawer .hu-drawer-body {
+        padding: 0; overflow-y: auto; height: calc(100% - 49px);
+      }
+
+      /* Section frame */
+      #hu-ticket360-drawer .hu-360-sec {
+        padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.05);
+      }
+      #hu-ticket360-drawer .hu-360-sec:last-child { border-bottom: 0; }
+      #hu-ticket360-drawer .hu-360-sec-h {
+        font-size: 11px; font-weight: 500; letter-spacing: 0.06em;
+        text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 12px;
+      }
+      #hu-ticket360-drawer .hu-360-sec-h-row {
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      #hu-ticket360-drawer .hu-360-link {
+        font-size: 11px; color: #9ec5e5; text-decoration: none;
+        letter-spacing: 0; text-transform: none; font-weight: 400; cursor: pointer;
+      }
+      #hu-ticket360-drawer .hu-360-link:hover { color: #cfe2f1; }
+
+      /* Banner — single, normal flow */
+      #hu-ticket360-drawer .hu-360-banner {
+        display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+        font-size: 12px; font-weight: 500; border-bottom: 1px solid transparent;
+        margin: 0; border-radius: 0; border-left: 0; border-right: 0; border-top: 0;
+      }
+      #hu-ticket360-drawer .hu-360-banner-approval {
+        background: rgba(83,141,186,0.10); border-bottom-color: rgba(83,141,186,0.20); color: #9ec5e5;
+      }
+      #hu-ticket360-drawer .hu-360-banner-vip {
+        background: rgba(168,85,247,0.10); border-bottom-color: rgba(168,85,247,0.22); color: #c4a3f0;
+      }
+      #hu-ticket360-drawer .hu-360-banner-important {
+        background: rgba(245,158,11,0.16); border-bottom-color: rgba(245,158,11,0.30); color: #fbbf24;
+      }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-banner-important {
+        background: #ffedd5; border-bottom-color: #fb923c; color: #9a3412;
+      }
+      #hu-ticket360-drawer .hu-360-banner-major {
+        background: rgba(239,68,68,0.12); border-bottom-color: rgba(239,68,68,0.25); color: #fca5a5;
+      }
+      #hu-ticket360-drawer .hu-360-banner-icon { flex-shrink: 0; }
+
+      /* Hero */
+      #hu-ticket360-drawer .hu-ticket-id {
+        font-family: "SF Mono", ui-monospace, Menlo, monospace;
+        font-size: 11px; color: rgba(255,255,255,0.55); letter-spacing: 0.02em;
+        margin: 0;
+      }
+      #hu-ticket360-drawer .hu-360-hero { position: relative; }
+      #hu-ticket360-drawer .hu-360-meta-row {
+        display: flex; align-items: center; gap: 16px;
+        margin-bottom: 14px;
+      }
+      #hu-ticket360-drawer .hu-360-meta-col {
+        flex: 1; min-width: 0;
+        display: flex; flex-direction: column; gap: 8px;
+      }
+      #hu-ticket360-drawer .hu-360-meta-col .hu-chip-row,
+      #hu-ticket360-drawer .hu-360-meta-col .hu-360-aging {
+        margin: 0;
+      }
+      #hu-ticket360-drawer .hu-360-sla-donut {
+        position: relative; flex-shrink: 0;
+        width: 140px; height: 48px;
+        animation: hu-360-donut-fade 0.45s ease-out;
+      }
+      #hu-ticket360-drawer .hu-360-sla-donut-center {
+        position: absolute; left: 0; right: 0; top: 36px;
+        text-align: center; pointer-events: none;
+        font-size: 11.5px; font-weight: 600; letter-spacing: 0.01em;
+        font-variant-numeric: tabular-nums;
+      }
+      #hu-ticket360-drawer .hu-360-sla-donut-center.is-ok     { color: #22c55e; }
+      #hu-ticket360-drawer .hu-360-sla-donut-center.is-warn   { color: #fbbf24; }
+      #hu-ticket360-drawer .hu-360-sla-donut-center.is-danger { color: #fca5a5; }
+      @keyframes hu-360-donut-fade {
+        from { opacity: 0; transform: scale(0.88); }
+        to   { opacity: 1; transform: scale(1); }
+      }
+      #hu-ticket360-drawer .hu-360-sla-donut svg { display: block; }
+      #hu-ticket360-drawer .hu-360-sla-donut-track {
+        color: rgba(255,255,255,0.08);
+      }
+      #hu-ticket360-drawer .hu-360-sla-donut-fill.is-ok     { stroke: #22c55e; }
+      #hu-ticket360-drawer .hu-360-sla-donut-fill.is-warn   { stroke: #f59e0b; }
+      #hu-ticket360-drawer .hu-360-sla-donut-fill.is-danger { stroke: #ef4444; }
+      @keyframes hu-360-sla-donut-fill-anim {
+        from { stroke-dashoffset: var(--sla-arc-len); }
+        to   { stroke-dashoffset: var(--sla-end-offset); }
+      }
+      #hu-ticket360-drawer .hu-360-sla-donut-fill {
+        animation: hu-360-sla-donut-fill-anim 0.9s cubic-bezier(0.4, 0, 0.2, 1) both;
+      }
+      @keyframes hu-360-sla-bar-fill-anim {
+        from { width: 0; }
+        to   { width: var(--sla-target-width); }
+      }
+      #hu-ticket360-drawer .hu-360-sla-fill {
+        animation: hu-360-sla-bar-fill-anim 0.9s cubic-bezier(0.4, 0, 0.2, 1) both;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #hu-ticket360-drawer .hu-360-sla-donut-fill,
+        #hu-ticket360-drawer .hu-360-sla-fill { animation-duration: 0.01s; }
+      }
+      #hu-ticket360-drawer .hu-ticket-summary {
+        font-size: 18px; font-weight: 500; margin: 4px 0 10px; color: #fff;
+        letter-spacing: -0.01em; line-height: 1.3;
+      }
+      #hu-ticket360-drawer .hu-ticket-summary--editable {
+        cursor: text; padding: 2px 6px; margin-left: -6px; margin-right: -6px;
+        border-radius: 4px; transition: background 0.15s;
+        outline: 1px solid transparent; outline-offset: 0;
+      }
+      #hu-ticket360-drawer .hu-ticket-summary--editable:hover {
+        background: rgba(255,255,255,0.04);
+        outline-color: rgba(255,255,255,0.08);
+      }
+      #hu-ticket360-drawer .hu-ticket-summary--editable.is-editing,
+      #hu-ticket360-drawer .hu-ticket-summary--editable:focus {
+        background: rgba(255,255,255,0.06);
+        outline-color: rgba(245,158,11,0.5);
+        cursor: text;
+      }
+      #hu-ticket360-drawer .hu-ticket-summary--saving {
+        opacity: 0.6; pointer-events: none;
+      }
+      #hu-ticket360-drawer .hu-chip-row {
+        display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;
+      }
+      #hu-ticket360-drawer .hu-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 3px 9px; border-radius: 999px;
+        font-size: 11px; font-weight: 500; letter-spacing: 0.01em;
+        text-shadow: none; border: 1px solid transparent;
+      }
+      #hu-ticket360-drawer .hu-chip-status {
+        background: rgba(83,141,186,0.18); color: #9ec5e5; border-color: rgba(83,141,186,0.30);
+      }
+      #hu-ticket360-drawer .hu-chip-status::before {
+        content: ""; width: 5px; height: 5px; border-radius: 50%; background: #5b9bd5;
+      }
+      #hu-ticket360-drawer .hu-chip-status.hu-chip--colored::before { display: none; }
+      #hu-ticket360-drawer .hu-chip-priority-medium {
+        background: rgba(245,158,11,0.14); color: #fbbf24; border-color: rgba(245,158,11,0.25);
+      }
+      #hu-ticket360-drawer .hu-chip-priority-high {
+        background: rgba(239,68,68,0.14); color: #fca5a5; border-color: rgba(239,68,68,0.25);
+      }
+      #hu-ticket360-drawer .hu-chip-priority-critical {
+        background: rgba(220,38,38,0.20); color: #fda4af; border-color: rgba(220,38,38,0.35);
+      }
+      #hu-ticket360-drawer .hu-chip-priority-low {
+        background: rgba(16,185,129,0.14); color: #6ee7b7; border-color: rgba(16,185,129,0.25);
+      }
+      #hu-ticket360-drawer .hu-chip-category {
+        background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.70); border-color: rgba(255,255,255,0.08);
+      }
+      #hu-ticket360-drawer .hu-360-aging {
+        display: flex; align-items: center; gap: 10px;
+        font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 14px;
+        background: transparent; border: 0; padding: 0;
+      }
+      #hu-ticket360-drawer .hu-360-aging > span { background: transparent; border: 0; padding: 0; }
+      #hu-ticket360-drawer .hu-360-aging > span + span::before {
+        content: "·"; margin-right: 10px; color: rgba(255,255,255,0.25);
+      }
+
+      /* Quick actions — 4-col grid */
+      #hu-ticket360-drawer .hu-360-quick-actions {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+        margin: 0; max-width: none;
+      }
+      #hu-ticket360-drawer .hu-360-quick-btn {
+        display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+        padding: 7px 4px; font-size: 11px; font-weight: 400;
+        color: rgba(255,255,255,0.80);
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 6px; text-decoration: none; cursor: pointer;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+        box-shadow: none; white-space: nowrap;
+      }
+      #hu-ticket360-drawer .hu-360-quick-btn:hover {
+        background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.10);
+      }
+      #hu-ticket360-drawer .hu-360-quick-btn svg { flex-shrink: 0; opacity: 1; }
+
+      /* Workflow segmented bar */
+      #hu-ticket360-drawer .hu-360-wf-row {
+        display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+      }
+      #hu-ticket360-drawer .hu-360-wf-name { font-size: 13px; color: rgba(255,255,255,0.85); }
+      #hu-ticket360-drawer .hu-360-wf-step {
+        font-size: 11px; color: rgba(255,255,255,0.50); font-variant-numeric: tabular-nums;
+      }
+      #hu-ticket360-drawer .hu-360-wf-bar { display: flex; gap: 3px; margin-bottom: 16px; }
+      #hu-ticket360-drawer .hu-360-wf-seg {
+        flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.08);
+      }
+      #hu-ticket360-drawer .hu-360-wf-seg.is-on { background: #538dba; }
+      #hu-ticket360-drawer .hu-360-wf-seg.is-current { background: #9ec5e5; }
+      @keyframes hu-360-wf-pulse {
+        0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(158,197,229,0.45); }
+        50%      { opacity: 0.1; box-shadow: 0 0 0 3px rgba(158,197,229,0); }
+      }
+      #hu-ticket360-drawer .hu-360-wf-bar.is-active .hu-360-wf-seg.is-current {
+        animation: hu-360-wf-pulse 4s ease-in-out infinite;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #hu-ticket360-drawer .hu-360-wf-bar.is-active .hu-360-wf-seg.is-current {
+          animation: none;
+        }
+      }
+
+      /* SLA bars */
+      #hu-ticket360-drawer .hu-360-status-bars {
+        display: flex; flex-direction: column; gap: 10px; border-top: 0; padding-top: 0; margin-top: 0;
+      }
+      #hu-ticket360-drawer .hu-360-sla-row {
+        display: flex; flex-direction: column; gap: 5px; margin: 0;
+      }
+      #hu-ticket360-drawer .hu-360-sla-label-row {
+        display: flex; align-items: center; justify-content: space-between; font-size: 12px;
+      }
+      #hu-ticket360-drawer .hu-360-sla-label { color: rgba(255,255,255,0.70); font-weight: 400; }
+      #hu-ticket360-drawer .hu-360-sla-due {
+        font-weight: 500; font-variant-numeric: tabular-nums; color: rgba(255,255,255,0.70);
+      }
+      #hu-ticket360-drawer .hu-360-sla-due.is-ok { color: #10b981; }
+      #hu-ticket360-drawer .hu-360-sla-due.is-warn { color: #f59e0b; }
+      #hu-ticket360-drawer .hu-360-sla-due.is-danger { color: #ef4444; }
+      #hu-ticket360-drawer .hu-360-sla-track {
+        height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;
+      }
+      #hu-ticket360-drawer .hu-360-sla-fill {
+        height: 100%; border-radius: 2px; background: rgba(255,255,255,0.40);
+      }
+      #hu-ticket360-drawer .hu-360-sla-fill.is-ok { background: #10b981; }
+      #hu-ticket360-drawer .hu-360-sla-fill.is-warn { background: #f59e0b; }
+      #hu-ticket360-drawer .hu-360-sla-fill.is-danger { background: #ef4444; }
+
+      /* Dates grid — Opened + Due side-by-side as a 2-col layout */
+      #hu-ticket360-drawer .hu-360-dates {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px;
+        margin-top: 14px; padding-top: 14px;
+        border-top: 1px solid rgba(255,255,255,0.05); font-size: 12px;
+      }
+      #hu-ticket360-drawer .hu-360-dates-k {
+        color: rgba(255,255,255,0.45); font-size: 10.5px; font-weight: 500;
+        text-transform: uppercase; letter-spacing: 0.06em;
+      }
+      #hu-ticket360-drawer .hu-360-dates-v {
+        color: rgba(255,255,255,0.85); font-variant-numeric: tabular-nums;
+      }
+
+      /* People — side-by-side Customer + Assignee on roomy widths,
+         stacking on narrower drawers (< 440px). */
+      #hu-ticket360-drawer .hu-360-people {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+        align-items: start;
+      }
+      #hu-ticket360-drawer .hu-360-people > .hu-360-sec-h { grid-column: 1 / -1; }
+      #hu-ticket360-drawer .hu-360-person {
+        display: flex; align-items: center; gap: 10px; padding: 0; min-width: 0; flex-wrap: wrap;
+      }
+      #hu-ticket360-drawer .hu-360-person + .hu-360-person {
+        border-top: 0;
+      }
+      @media (max-width: 460px) {
+        #hu-ticket360-drawer .hu-360-people { grid-template-columns: 1fr; }
+        #hu-ticket360-drawer .hu-360-person + .hu-360-person {
+          border-top: 1px solid rgba(255,255,255,0.05); padding-top: 10px;
+        }
+      }
+      #hu-ticket360-drawer .hu-360-additional-agents {
+        flex-basis: 100%; margin-top: 6px; margin-left: 42px;
+        font-size: 11px; color: rgba(255,255,255,0.50);
+      }
+      #hu-ticket360-drawer .hu-360-avatar {
+        width: 32px; height: 32px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 11px; font-weight: 500; letter-spacing: 0.02em; flex-shrink: 0;
+        overflow: hidden;
+      }
+      #hu-ticket360-drawer .hu-360-avatar--img {
+        background: transparent !important; padding: 0;
+      }
+      #hu-ticket360-drawer .hu-360-avatar--img img {
+        width: 100%; height: 100%; object-fit: cover; display: block;
+      }
+      #hu-ticket360-drawer .hu-360-avatar-customer {
+        background: rgba(168,85,247,0.18); color: #c4a3f0;
+      }
+      #hu-ticket360-drawer .hu-360-avatar-agent {
+        background: rgba(83,141,186,0.20); color: #9ec5e5;
+      }
+      #hu-ticket360-drawer .hu-360-person-main { flex: 1; min-width: 0; }
+      #hu-ticket360-drawer .hu-360-person-label {
+        font-size: 11px; color: rgba(255,255,255,0.45); margin-bottom: 1px;
+      }
+      #hu-ticket360-drawer .hu-360-person-name { font-size: 13px; color: #fff; }
+      #hu-ticket360-drawer .hu-360-person-name a { color: #fff; text-decoration: none; }
+      #hu-ticket360-drawer .hu-360-person-name a:hover { color: #9ec5e5; }
+      #hu-ticket360-drawer .hu-360-person-sub {
+        font-size: 11px; color: rgba(255,255,255,0.50); margin-top: 1px;
+      }
+      #hu-ticket360-drawer .hu-360-person-sub a { color: inherit; text-decoration: none; }
+      #hu-ticket360-drawer .hu-360-person-sub a:hover { color: #9ec5e5; }
+      #hu-ticket360-drawer .hu-360-cust-sep {
+        margin: 0 6px; color: rgba(255,255,255,0.25);
+      }
+      /* VIP / Key contact inline marker next to the customer name */
+      #hu-ticket360-drawer .hu-360-cust-marker {
+        display: inline-flex; align-items: center; gap: 4px;
+        margin-left: 8px; padding: 2px 7px;
+        font-size: 9.5px; font-weight: 600; letter-spacing: 0.04em;
+        text-transform: uppercase; border-radius: 99px;
+        vertical-align: middle; line-height: 1;
+      }
+      #hu-ticket360-drawer .hu-360-cust-marker svg {
+        flex-shrink: 0; vertical-align: middle;
+      }
+      #hu-ticket360-drawer .hu-360-cust-marker-vip {
+        background: rgba(168,85,247,0.18); color: #c4a3f0; border: 1px solid rgba(168,85,247,0.30);
+      }
+      #hu-ticket360-drawer .hu-360-cust-marker-key {
+        background: rgba(245,158,11,0.16); color: #fbbf24; border: 1px solid rgba(245,158,11,0.28);
+      }
+      #hu-ticket360-drawer .hu-360-assign-trigger {
+        display: inline-flex; align-items: center; gap: 4px;
+        background: transparent; border: 0; color: rgba(255,255,255,0.55);
+        font-size: 11px; cursor: pointer; padding: 4px 6px; border-radius: 4px;
+        transition: background 0.15s, color 0.15s;
+      }
+      #hu-ticket360-drawer .hu-360-assign-trigger:hover {
+        background: rgba(255,255,255,0.06); color: #fff;
+      }
+      #hu-ticket360-drawer .hu-360-person--clickable {
+        cursor: pointer; border-radius: 6px;
+        margin: 0 -6px; padding-left: 6px; padding-right: 6px;
+        transition: background 0.15s;
+      }
+      #hu-ticket360-drawer .hu-360-person--clickable:hover,
+      #hu-ticket360-drawer .hu-360-person--clickable:focus-visible {
+        background: rgba(255,255,255,0.04); outline: none;
+      }
+      #hu-ticket360-drawer .hu-360-person-caret {
+        color: rgba(255,255,255,0.45); flex-shrink: 0;
+        transition: color 0.15s, transform 0.15s;
+      }
+      #hu-ticket360-drawer .hu-360-person--clickable:hover .hu-360-person-caret {
+        color: #fff;
+      }
+
+      /* Timeline */
+      #hu-ticket360-drawer .hu-360-tl { display: flex; flex-direction: column; }
+      #hu-ticket360-drawer .hu-360-tl-row {
+        display: flex; gap: 12px; padding-bottom: 14px; position: relative;
+      }
+      #hu-ticket360-drawer .hu-360-tl-row:last-child { padding-bottom: 0; }
+      #hu-ticket360-drawer .hu-360-tl-gutter {
+        flex-shrink: 0; display: flex; flex-direction: column; align-items: center; width: 8px;
+        padding-top: 0;
+      }
+      #hu-ticket360-drawer .hu-360-tl-dot {
+        width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        margin-top: 4px; border: 2px solid #0f1218; background: rgba(255,255,255,0.25);
+        box-shadow: none;
+      }
+      #hu-ticket360-drawer .hu-360-tl-dot.is-ok {
+        background: #10b981; box-shadow: 0 0 0 1px rgba(16,185,129,0.30);
+      }
+      #hu-ticket360-drawer .hu-360-tl-dot.is-warn {
+        background: #f59e0b; box-shadow: 0 0 0 1px rgba(245,158,11,0.30);
+      }
+      #hu-ticket360-drawer .hu-360-tl-dot.is-danger {
+        background: #ef4444; box-shadow: 0 0 0 1px rgba(239,68,68,0.30);
+      }
+      #hu-ticket360-drawer .hu-360-tl-dot.is-muted { background: rgba(255,255,255,0.25); }
+      #hu-ticket360-drawer .hu-360-tl-line {
+        flex: 1; width: 1px; background: rgba(255,255,255,0.08); margin-top: 4px; min-height: 8px;
+      }
+      #hu-ticket360-drawer .hu-360-tl-body { flex: 1; min-width: 0; padding-bottom: 4px; }
+      #hu-ticket360-drawer .hu-360-tl-th {
+        display: flex; align-items: baseline; justify-content: space-between;
+        gap: 8px; margin-bottom: 2px;
+      }
+      #hu-ticket360-drawer .hu-360-tl-th-l {
+        display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1;
+      }
+      #hu-ticket360-drawer .hu-360-tl-title {
+        font-size: 12px; font-weight: 500; color: #fff;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      #hu-ticket360-drawer .hu-360-tl-dur {
+        font-size: 10.5px; font-weight: 500; color: rgba(255,255,255,0.85);
+        background: rgba(245,158,11,0.18); border: 1px solid rgba(245,158,11,0.35);
+        padding: 1px 6px; border-radius: 999px; flex-shrink: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      #hu-ticket360-drawer .hu-360-tl-time {
+        font-size: 11px; color: rgba(255,255,255,0.45); flex-shrink: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      #hu-ticket360-drawer .hu-360-tl-note {
+        font-size: 11px; color: rgba(255,255,255,0.55); line-height: 1.5;
+        background: transparent; border: 0; padding: 0; margin-top: 0;
+      }
+      #hu-ticket360-drawer .hu-360-tl-note strong {
+        color: rgba(255,255,255,0.85); font-weight: 500;
+      }
+      #hu-ticket360-drawer .hu-360-tl-kv {
+        display: grid; grid-template-columns: minmax(0, 140px) minmax(0, 1fr);
+        gap: 2px 10px; margin-top: 6px; padding: 8px 10px;
+        background: rgba(255,255,255,0.03); border-radius: 5px; font-size: 11px;
+        align-items: start;
+      }
+      #hu-ticket360-drawer .hu-360-tl-kv-k {
+        color: rgba(255,255,255,0.45);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      #hu-ticket360-drawer .hu-360-tl-kv-v {
+        color: rgba(255,255,255,0.80); overflow-wrap: anywhere;
+      }
+
+      /* Existing cards (KB, linked, similar, custom fields, status history,
+         commercial trace) styled as flat sections too — same hairline pattern. */
+      #hu-ticket360-drawer .hu-card {
+        background: transparent; border: 0; border-radius: 0;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        padding: 16px; margin-bottom: 0; box-shadow: none;
+      }
+      #hu-ticket360-drawer .hu-card:last-child { border-bottom: 0; }
+      #hu-ticket360-drawer .hu-section-title {
+        font-size: 11px; font-weight: 500; letter-spacing: 0.06em;
+        text-transform: uppercase; color: rgba(255,255,255,0.45); margin-bottom: 12px;
+      }
+      #hu-ticket360-drawer .hu-section-title-row { margin-bottom: 12px; }
+      #hu-ticket360-drawer .hu-360-cf-label,
+      #hu-ticket360-drawer .hu-360-linked-label,
+      #hu-ticket360-drawer .hu-360-cf-label { color: rgba(255,255,255,0.45); }
+      #hu-ticket360-drawer .hu-360-cf-value,
+      #hu-ticket360-drawer .hu-360-kb-title,
+      #hu-ticket360-drawer .hu-360-similar-title { color: rgba(255,255,255,0.92); }
+      #hu-ticket360-drawer .hu-360-kb-abstract,
+      #hu-ticket360-drawer .hu-360-similar-meta,
+      #hu-ticket360-drawer .hu-360-trans-time { color: rgba(255,255,255,0.50); }
+      #hu-ticket360-drawer .hu-360-linked-chip {
+        background: rgba(83,141,186,0.12); color: #9ec5e5; border-color: rgba(83,141,186,0.25);
+      }
+      #hu-ticket360-drawer .hu-360-linked-chip:hover { background: rgba(83,141,186,0.22); }
+      #hu-ticket360-drawer .hu-360-trans-label { color: rgba(255,255,255,0.85); }
+      #hu-ticket360-drawer .hu-360-trans-arrow { color: rgba(255,255,255,0.20); }
+      #hu-ticket360-drawer .hu-360-similar-row {
+        border-bottom-color: rgba(255,255,255,0.05);
+      }
+      #hu-ticket360-drawer .hu-360-similar-row:hover { background: rgba(255,255,255,0.03); }
+      #hu-ticket360-drawer .hu-360-field-count {
+        background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55);
+      }
+      #hu-ticket360-drawer .hu-360-linked-count {
+        background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55);
+      }
+
+      /* Clickable chip (status / priority) — adds a subtle hover affordance
+         so users discover they can change those fields by clicking. */
+      #hu-ticket360-drawer .hu-chip-clickable {
+        cursor: pointer; font: inherit; outline: none;
+        transition: filter 0.12s, transform 0.08s;
+      }
+      #hu-ticket360-drawer .hu-chip-clickable:hover { filter: brightness(1.18); }
+      #hu-ticket360-drawer .hu-chip-clickable:active { transform: scale(0.97); }
+
+      /* Inline note editor — sits between hero and the next section */
+      .hu-360-note-editor {
+        margin: 12px 16px 0; padding: 12px; border-radius: 6px;
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      }
+      .hu-360-note-text {
+        width: 100%; box-sizing: border-box; resize: vertical;
+        background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 5px; padding: 8px 10px; color: rgba(255,255,255,0.92);
+        font-size: 12px; font-family: inherit; line-height: 1.5; min-height: 80px; outline: none;
+      }
+      .hu-360-note-text:focus { border-color: rgba(83,141,186,0.55); }
+      .hu-360-note-actions {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 10px; margin-top: 8px;
+      }
+      .hu-360-note-visibility { font-size: 11px; color: rgba(255,255,255,0.60); display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+      .hu-360-note-visibility input { margin: 0; }
+      .hu-360-note-btns { display: flex; gap: 6px; }
+      .hu-360-note-cancel, .hu-360-note-save {
+        padding: 5px 10px; font-size: 11px; font-weight: 500;
+        border-radius: 5px; border: 1px solid rgba(255,255,255,0.10);
+        background: transparent; color: rgba(255,255,255,0.70); cursor: pointer;
+      }
+      .hu-360-note-cancel:hover { background: rgba(255,255,255,0.06); color: #fff; }
+      .hu-360-note-save { background: #538dba; color: #fff; border-color: #538dba; }
+      .hu-360-note-save:hover { background: #6ea0c8; }
+      .hu-360-note-status { font-size: 10.5px; color: rgba(255,255,255,0.55); margin-top: 6px; }
+      .hu-360-time-row { display: flex; gap: 10px; }
+      .hu-360-time-label {
+        display: flex; flex-direction: column; gap: 4px;
+        font-size: 10.5px; color: rgba(255,255,255,0.60);
+        flex: 0 0 110px;
+      }
+      .hu-360-time-label-grow { flex: 1; min-width: 0; }
+      .hu-360-time-row input {
+        background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 5px; padding: 6px 8px; color: rgba(255,255,255,0.92);
+        font-size: 12px; font-family: inherit; outline: none;
+      }
+      .hu-360-time-row input:focus { border-color: rgba(83,141,186,0.55); }
+      html.hu-theme-light .hu-360-time-label { color: #5e7290; }
+      html.hu-theme-light .hu-360-time-row input { background: #fff; border-color: #d8dde8; color: #172033; }
+      html.hu-theme-light .hu-360-time-row input:focus { border-color: #2563eb; }
+
+      /* Status/priority choice picker popover */
+      .hu-360-choice-pop {
+        z-index: 2147483600;
+        background: #1a2236; border: 1px solid #303744; border-radius: 6px;
+        box-shadow: 0 12px 36px rgba(0,0,0,0.5);
+        max-height: 320px; display: flex; flex-direction: column; overflow: hidden;
+      }
+      .hu-360-choice-list { overflow-y: auto; max-height: 280px; padding: 4px; }
+      .hu-360-choice-row {
+        display: flex; align-items: center; gap: 8px;
+        width: 100%; padding: 6px 8px; border: 0; background: transparent;
+        text-align: left; cursor: pointer; border-radius: 4px;
+        font-size: 12px; color: rgba(255,255,255,0.92);
+      }
+      .hu-360-choice-row:hover, .hu-360-choice-row:focus {
+        background: rgba(255,255,255,0.08); outline: none;
+      }
+      .hu-360-choice-row.is-current { background: rgba(83,141,186,0.15); color: #fff; }
+      .hu-360-choice-row:disabled { opacity: 0.5; cursor: progress; }
+      .hu-360-choice-dot {
+        width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+        background: rgba(255,255,255,0.25);
+      }
+      .hu-360-choice-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .hu-360-choice-status { padding: 4px 10px 8px; font-size: 10.5px; color: rgba(255,255,255,0.55); }
+
+      /* Light-mode overrides — same flat-section / hairline pattern, just
+         swap surface + text colours. Triggered via the host's hu-theme-light
+         class OR the @media query for users on system light without an
+         explicit extension theme. */
+      html.hu-theme-light #hu-ticket360-drawer.hu-drawer { background: #ffffff; color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-drawer-header { border-bottom-color: #e3e7ef; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-drawer-title { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-icon-btn { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-icon-btn:hover { background: #f1f4fa; color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sec { border-bottom-color: #edf0f5; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sec-h { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-link { color: #2563eb; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-link:hover { color: #1d4ed8; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-ticket-id { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-ticket-summary { color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sla-donut-track { color: #e3e7ef; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sla-donut-center.is-ok     { color: #15803d; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sla-donut-center.is-warn   { color: #b45309; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sla-donut-center.is-danger { color: #b91c1c; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-ticket-summary--editable:hover {
+        background: #f1f4fa; outline-color: #e3e7ef;
+      }
+      html.hu-theme-light #hu-ticket360-drawer .hu-ticket-summary--editable.is-editing,
+      html.hu-theme-light #hu-ticket360-drawer .hu-ticket-summary--editable:focus {
+        background: #fffbeb; outline-color: #fcd34d;
+      }
+      html.hu-theme-light #hu-ticket360-drawer .hu-chip-status { background: rgba(83,141,186,0.12); color: #2563eb; border-color: rgba(83,141,186,0.30); }
+      html.hu-theme-light #hu-ticket360-drawer .hu-chip-priority-medium { background: rgba(245,158,11,0.12); color: #b07209; border-color: rgba(245,158,11,0.30); }
+      html.hu-theme-light #hu-ticket360-drawer .hu-chip-priority-high { background: rgba(239,68,68,0.12); color: #c92626; border-color: rgba(239,68,68,0.30); }
+      html.hu-theme-light #hu-ticket360-drawer .hu-chip-priority-critical { background: rgba(220,38,38,0.18); color: #9b1c1c; border-color: rgba(220,38,38,0.35); }
+      html.hu-theme-light #hu-ticket360-drawer .hu-chip-priority-low { background: rgba(16,185,129,0.12); color: #047857; border-color: rgba(16,185,129,0.30); }
+      html.hu-theme-light #hu-ticket360-drawer .hu-chip-category { background: #f1f4fa; color: #5e7290; border-color: #e3e7ef; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-aging { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-aging > span + span::before { color: #cbd5e1; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-quick-btn { color: #5e7290; background: #fbfcfe; border-color: #e3e7ef; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-quick-btn:hover { background: #f1f4fa; color: #172033; border-color: #c5cad3; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-wf-name { color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-wf-step { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-wf-seg { background: #e3e7ef; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-wf-seg.is-on { background: #538dba; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-wf-seg.is-current { background: #2563eb; }
+      @keyframes hu-360-wf-pulse-light {
+        0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(37,99,235,0.45); }
+        50%      { opacity: 0.1; box-shadow: 0 0 0 3px rgba(37,99,235,0); }
+      }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-wf-bar.is-active .hu-360-wf-seg.is-current {
+        animation-name: hu-360-wf-pulse-light;
+      }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sla-label { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sla-due { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sla-due.is-ok { color: #059669; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sla-due.is-warn { color: #d97706; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sla-due.is-danger { color: #dc2626; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-sla-track { background: #edf0f5; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-dates { border-top-color: #edf0f5; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-dates-k { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-dates-v { color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-person + .hu-360-person { border-top-color: #edf0f5; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-avatar-customer { background: rgba(168,85,247,0.14); color: #7c3aed; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-avatar-agent { background: rgba(83,141,186,0.18); color: #2563eb; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-person-label { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-person-name { color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-person-name a { color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-person-name a:hover { color: #2563eb; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-person-sub { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-person-sub a:hover { color: #2563eb; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-cust-sep { color: #cbd5e1; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-cust-marker-vip {
+        background: rgba(168,85,247,0.12); color: #7c3aed; border-color: rgba(168,85,247,0.30);
+      }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-cust-marker-key {
+        background: #ffedd5; color: #9a3412; border-color: #fb923c;
+      }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-assign-trigger { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-assign-trigger:hover { background: #f1f4fa; color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-person--clickable:hover,
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-person--clickable:focus-visible {
+        background: #f1f4fa;
+      }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-person-caret { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-person--clickable:hover .hu-360-person-caret {
+        color: #172033;
+      }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-dot { border-color: #fff; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-dot.is-muted { background: #cbd5e1; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-line { background: #e3e7ef; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-title { color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-time { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-dur {
+        color: #92400e; background: #fef3c7; border-color: #fcd34d;
+      }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-note { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-note strong { color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-kv { background: #f8fafc; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-kv-k { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-kv-v { color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-card { border-bottom-color: #edf0f5; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-section-title { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-cf-label,
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-linked-label { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-cf-value,
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-kb-title,
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-similar-title { color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-kb-abstract,
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-similar-meta,
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-trans-time { color: #5e7290; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-linked-chip { background: rgba(59,130,246,0.08); color: #2563eb; border-color: rgba(59,130,246,0.20); }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-linked-chip:hover { background: rgba(59,130,246,0.18); }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-trans-label { color: #172033; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-trans-arrow { color: #cbd5e1; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-similar-row { border-bottom-color: #edf0f5; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-similar-row:hover { background: #f8fafc; }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-field-count,
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-linked-count { background: #f1f4fa; color: #5e7290; }
+      html.hu-theme-light .hu-360-note-editor { background: #f8fafc; border-color: #e3e7ef; }
+      html.hu-theme-light .hu-360-note-text { background: #fff; border-color: #d8dde8; color: #172033; }
+      html.hu-theme-light .hu-360-note-text:focus { border-color: #2563eb; }
+      html.hu-theme-light .hu-360-note-visibility { color: #5e7290; }
+      html.hu-theme-light .hu-360-note-cancel { border-color: #d8dde8; color: #5e7290; }
+      html.hu-theme-light .hu-360-note-cancel:hover { background: #f1f4fa; color: #172033; }
+      html.hu-theme-light .hu-360-note-save { background: #2563eb; border-color: #2563eb; }
+      html.hu-theme-light .hu-360-note-save:hover { background: #1d4ed8; }
+      html.hu-theme-light .hu-360-note-status { color: #5e7290; }
+      html.hu-theme-light .hu-360-choice-pop { background: #fff; border-color: #d8dde8; box-shadow: 0 12px 36px rgba(8,16,30,0.2); }
+      html.hu-theme-light .hu-360-choice-row { color: #172033; }
+      html.hu-theme-light .hu-360-choice-row:hover, html.hu-theme-light .hu-360-choice-row:focus { background: #f1f4fa; }
+      html.hu-theme-light .hu-360-choice-row.is-current { background: rgba(59,130,246,0.10); color: #172033; }
+      html.hu-theme-light .hu-360-choice-status { color: #5e7290; }
     `;
     document.documentElement.appendChild(style);
     applyThemeStyles();
@@ -1349,6 +2970,41 @@ FROM (
       html.hu-theme-dark .hu-360-act-track { background: #2b3548; }
       html.hu-theme-dark .hu-360-tl-line { background: #2b3548; }
       html.hu-theme-dark .hu-360-tl-note { background: #151d2c; border-color: #2b3548; color: #a7afbd; }
+      html.hu-theme-dark #hu-ticket360-drawer .hu-section-title { color: #94a3b8; }
+      html.hu-theme-dark .hu-360-meta-value,
+      html.hu-theme-dark .hu-360-sla-label { color: #edf1f7; }
+      html.hu-theme-dark .hu-360-meta-label { color: #94a3b8; }
+      html.hu-theme-dark .hu-360-sla-due { color: #a7afbd; }
+      html.hu-theme-dark .hu-360-sla-track { background: #2b3548; }
+      html.hu-theme-dark .hu-360-status-bars { border-top-color: #2b3548; }
+      html.hu-theme-dark .hu-360-aging-chip { background: #1d2a42; border-color: #2b3548; color: #a7afbd; }
+      html.hu-theme-dark .hu-360-cf-label { color: #94a3b8; }
+      html.hu-theme-dark .hu-360-cf-value { color: #edf1f7; }
+      html.hu-theme-dark .hu-360-field-count { background: #1d2a42; color: #a7afbd; }
+      html.hu-theme-dark .hu-360-trans-label { color: #edf1f7; }
+      html.hu-theme-dark .hu-360-trans-arrow { color: #475569; }
+      html.hu-theme-dark .hu-360-kb-title { color: #edf1f7; }
+      html.hu-theme-dark .hu-360-kb-abstract { color: #a7afbd; }
+      html.hu-theme-dark .hu-360-similar-title { color: #edf1f7; }
+      html.hu-theme-dark .hu-360-similar-row { border-bottom-color: #2b3548; }
+      html.hu-theme-dark .hu-360-similar-row:hover { background: #1d2a42; }
+      html.hu-theme-dark .hu-360-linked-count { background: #1d2a42; color: #a7afbd; }
+      html.hu-theme-dark .hu-360-cust-value,
+      html.hu-theme-dark .hu-360-cust-text { color: #edf1f7; }
+      html.hu-theme-dark .hu-360-cust-label { color: #94a3b8; }
+      html.hu-theme-dark .hu-360-cust-link { color: #6aa8ff; }
+      html.hu-theme-dark .hu-360-cust-sep { color: #475569; }
+      html.hu-theme-dark .hu-360-assign-row { border-top-color: #2b3548; }
+      html.hu-theme-dark .hu-360-assign-trigger { background: #1d2a42; border-color: #303744; color: #edf1f7; }
+      html.hu-theme-dark .hu-360-assign-trigger:hover { background: #243154; border-color: #404b62; }
+      html.hu-theme-dark .hu-360-assign-extras { color: #a7afbd; }
+      html.hu-theme-dark .hu-360-agent-pop { background: #1a2236; border-color: #303744; box-shadow: 0 12px 36px rgba(0,0,0,0.5); }
+      html.hu-theme-dark .hu-360-agent-search { background: transparent; color: #edf1f7; border-bottom-color: #303744; }
+      html.hu-theme-dark .hu-360-agent-row { color: #edf1f7; }
+      html.hu-theme-dark .hu-360-agent-row:hover,
+      html.hu-theme-dark .hu-360-agent-row:focus { background: #1d2a42; }
+      html.hu-theme-dark .hu-360-agent-team { color: #94a3b8; }
+      html.hu-theme-dark .hu-360-agent-status { color: #94a3b8; }
       html.hu-theme-dark .hu-tbl-export-menu { background: #1a2236; border-color: #303744; box-shadow: 0 6px 20px rgba(0,0,0,.3); }
       html.hu-theme-dark .hu-tbl-export-item { color: #d0d7e5; }
       html.hu-theme-dark .hu-tbl-export-item:hover { background: #1d2a42; }
@@ -1593,6 +3249,11 @@ FROM (
       }
     }).catch(() => {});
 
+    // Counter / tag pre-fetches are now lazy — kicked off from
+    // scheduleVisibleCommandFetches(), which runs after each render with
+    // only the typeIds actually visible. Saves ~100 API calls on tenants
+    // with many custom ticket types.
+
     const backdrop = document.createElement('div');
     backdrop.className = 'hu-palette-backdrop';
     backdrop.id = 'hu-palette-backdrop';
@@ -1713,6 +3374,23 @@ FROM (
         activateResult(result);
         return;
       }
+
+      // Autocomplete: if the user typed a partial slash-command (no space yet)
+      // and the highlighted result starts with it, fill in the full command
+      // plus a trailing space so they can continue typing a scope-search term.
+      // Example: "/peri" → ArrowRight → "/peripherals-request ".
+      const typed = input.value;
+      const completion = result.displayTitle || (result.id ? `/${result.id}` : '');
+      if (completion && typed.startsWith('/') && !typed.includes(' ') &&
+          typed.length < completion.length &&
+          completion.toLowerCase().startsWith(typed.toLowerCase())) {
+        event.preventDefault();
+        input.value = `${completion} `;
+        input.setSelectionRange(input.value.length, input.value.length);
+        updatePaletteFooter(input.value);
+        runPaletteSearch(input.value);
+        return;
+      }
       return;
     }
 
@@ -1734,10 +3412,18 @@ FROM (
     if (spaceIdx === -1) return null;
     const keyword = normalized.slice(0, spaceIdx);
     const searchTerm = normalized.slice(spaceIdx + 1).trim();
-    const commandId = ENTITY_COMMAND_IDS[keyword];
-    if (!commandId) return null;
     const def = ENTITY_SEARCH_MAP[keyword] || HU.ticketTypeSearchMap[keyword];
-    if (!def || !searchTerm) return null;
+    // Allow an empty searchTerm for ticket-type scopes — "/laptop-request "
+    // (trailing space) lists the latest 20 of that type. For other entities
+    // an empty term has no meaning, so keep the guard.
+    if (!def) return null;
+    if (!searchTerm && !(def.typeId != null || def.typeMatch || def.sectionMatch)) return null;
+    // ENTITY_COMMAND_IDS holds the static built-in keyword → commandId map.
+    // Tenant-defined custom ticket types live in HU.ticketTypeSearchMap and
+    // carry their own commandId, so fall back to that when the static map
+    // doesn't know the keyword.
+    const commandId = ENTITY_COMMAND_IDS[keyword] || def.commandId;
+    if (!commandId) return null;
     return { def: { ...def, commandId }, keyword, searchTerm };
   }
 
@@ -1764,6 +3450,25 @@ FROM (
   }
 
   async function runEntitySearchForDef(def, searchTerm) {
+    // Try the entity API first (works for non-admin agents). Fall back to
+    // /api/Report-based SQL search only if the entity-API path isn't
+    // configured for this routeType or the call hits an unexpected error.
+    if (ENTITY_API_CONFIG[def.route]) {
+      try {
+        const apiResults = await searchEntityViaApi(def, searchTerm);
+        if (apiResults) return apiResults;
+      } catch (e) {
+        // 401/403/permission failures fall through to SQL — admins still have a
+        // working path. For non-admins SQL also fails, so skip it entirely once
+        // the report probe has confirmed no access (avoids guaranteed-403 floods).
+        if (HU.reportApiOk === false) return [];
+      }
+    }
+
+    // Same gate before the SQL section: if the agent can't run reports, return
+    // empty rather than fire a doomed /api/Report POST.
+    if (HU.reportApiOk === false) return [];
+
     const escaped = sqlEscape(searchTerm);
     const numeric = /^\d+$/.test(searchTerm);
     const searchColumns = numeric ? [] : await resolveSearchColumns(def.table, def.searchCols, def.optionalSearchCols);
@@ -1853,12 +3558,36 @@ FROM (
     if (entityQuery) {
       const navCmd = BASE_COMMANDS.find(c => c.id === entityQuery.def.commandId)
         || HU.ticketTypeCommands.find(c => c.id === entityQuery.def.commandId);
-      const navResults = navCmd ? [{ ...navCmd, displayTitle: `/${entityQuery.keyword}`, kind: navCmd.kind || 'ITSM' }] : [];
+      const disabled = isEntityCommandDisabled(entityQuery.keyword)
+        || isEntityCommandDisabled(entityQuery.def.commandId);
+      const navResults = navCmd ? [{
+        ...navCmd,
+        displayTitle: `/${entityQuery.keyword}`,
+        kind: navCmd.kind || 'ITSM',
+        disabled,
+        disabledReason: disabled ? entityDisabledTooltip(entityQuery.keyword) : ''
+      }] : [];
       HU.paletteResults = navResults;
       HU.selectedIndex = 0;
       renderPaletteResults(navResults, false);
 
+      // Skip the API call entirely when the entity is gated — saves a guaranteed
+      // 401/403 round-trip and keeps the disabled nav stub on screen.
+      if (disabled) return;
+
+      // Delay-show the loading row by 150ms so cached / fast responses don't
+      // flicker a spinner. If the API hasn't returned within that window,
+      // re-render with the loader added; otherwise it never appears.
+      const loadingRow = { loading: true, title: 'Searching…', subtitle: '' };
+      const loaderToken = ++HU.entityLoaderToken;
+      const loaderTimer = setTimeout(() => {
+        if (loaderToken === HU.entityLoaderToken && HU.paletteOpen) {
+          renderPaletteResults([...navResults, loadingRow], false);
+        }
+      }, 150);
+
       const liveResults = await searchEntityRecords(entityQuery.def, entityQuery.searchTerm);
+      clearTimeout(loaderTimer);
       if (!HU.paletteOpen) return;
       HU.paletteResults = mergeEntitySearchResults(navResults, liveResults, entityQuery.searchTerm).slice(0, 20);
       renderPaletteResults(HU.paletteResults, false);
@@ -1882,7 +3611,21 @@ FROM (
     }
 
     if (query.length >= 2) {
+      // Only show the loader if open-ended SQL search will actually run —
+      // for non-admin agents we skip it (reportApiOk === false), so no spinner.
+      // Same 150ms delay as the entity-scope branch above to avoid flicker.
+      let openLoaderTimer = null;
+      const openLoaderToken = ++HU.openLoaderToken;
+      if (HU.reportApiOk !== false) {
+        const loadingRow = { loading: true, title: 'Searching across records…', subtitle: '' };
+        openLoaderTimer = setTimeout(() => {
+          if (openLoaderToken === HU.openLoaderToken && HU.paletteOpen) {
+            renderPaletteResults([...results, loadingRow], false);
+          }
+        }, 150);
+      }
       const liveResults = await searchHaloRecords(query);
+      if (openLoaderTimer) clearTimeout(openLoaderTimer);
       if (!HU.paletteOpen) return;
       HU.paletteResults = [...results, ...liveResults].slice(0, 40);
       renderPaletteResults(HU.paletteResults, false);
@@ -2126,22 +3869,34 @@ ORDER BY TABLE_NAME, ORDINAL_POSITION
     const normalized = normalizeQuery(query);
     const impersonationQuery = getImpersonationQuery(query);
 
-    const commands = BASE_COMMANDS
+    const commands = [...BASE_COMMANDS, ...HU.ticketTypeCommands]
       .filter(isPaletteCommandAvailable)
       .map(item => ({
         ...item,
         aliasMatch: getCommandAliasId(normalized) === item.id,
         kind: item.kind || 'Tools'
       }))
-      .filter(item => impersonationQuery === null && (item.aliasMatch || fuzzyMatch(`${item.id} ${item.title} ${item.subtitle} ${item.keywords.join(' ')}`, normalized)))
-      .map(item => ({
-        ...item,
-        displayTitle: `/${item.aliasMatch ? normalized : item.id}`,
-        ...(item.id === 'cfg'
-          ? { isCfgEntry: true, subCount: CONFIG_SECTIONS.length, kind: `${CONFIG_SECTIONS.length} ›` }
-          : {})
-      }))
+      .filter(item => impersonationQuery === null && (item.aliasMatch || fuzzyMatch(`${item.id} ${item.title} ${item.subtitle} ${(item.keywords || []).join(' ')}`, normalized)));
+    // Lazy fetch for any visible-after-filter commands.
+    setTimeout(() => scheduleVisibleCommandFetches(commands), 0);
+    const decorated = commands
+      .map(item => {
+        const disabled = isEntityCommandDisabled(item.id);
+        const openCount = getCommandOpenCount(item.id);
+        return {
+          ...item,
+          displayTitle: `/${item.aliasMatch ? normalized : item.id}`,
+          kind: openCount != null ? `${openCount} open` : item.kind,
+          subCount: openCount != null ? openCount : undefined,
+          disabled,
+          disabledReason: disabled ? entityDisabledTooltip(item.id) : '',
+          ...(item.id === 'cfg'
+            ? { isCfgEntry: true, subCount: CONFIG_SECTIONS.length, kind: `${CONFIG_SECTIONS.length} ›` }
+            : {})
+        };
+      })
       .sort((a, b) =>
+        Number(a.disabled) - Number(b.disabled) ||
         Number(b.aliasMatch) - Number(a.aliasMatch) ||
         rankMatch(b.title, b.id, b.keywords, normalized) - rankMatch(a.title, a.id, a.keywords, normalized)
       );
@@ -2196,7 +3951,7 @@ ORDER BY TABLE_NAME, ORDINAL_POSITION
     const ticketTypeCmds = [];
 
     if (!normalized) return getDefaultCommandResults();
-    return [...commands, ...ticketTypeCmds, ...customCmds, ...shortcuts, ...recent].slice(0, 28);
+    return [...decorated, ...ticketTypeCmds, ...customCmds, ...shortcuts, ...recent].slice(0, 28);
   }
 
   function updatePaletteFooter(query) {
@@ -2508,6 +4263,58 @@ ORDER BY TABLE_NAME, ORDINAL_POSITION
   }
 
   async function searchAgentsForImpersonation(query) {
+    // Entity-API path (works for non-admin agents who have the Can_Impersonate
+    // claim). Falls back to SQL only when entity API throws something other
+    // than a permission/404 (admins still benefit from the SQL path if they
+    // hit a network blip on /api/agent).
+    try {
+      const term = String(query || '').trim();
+      const params = new URLSearchParams();
+      if (term) params.set('search', term);
+      params.set('count', '10');
+      const response = await haloApiRequest(`/api/agent?${params.toString()}`);
+      const records = extractEntityList(response, 'agents');
+      const mapped = records.map(record => {
+        const id = record.id != null ? record.id : record.uid;
+        if (id == null) return null;
+        const title = record.name || record.username || `Agent ${id}`;
+        const email = record.email || record.emailaddress || record.jobtitle || '';
+        return {
+          title,
+          subtitle: `${email || 'Agent'} - id ${id}`,
+          kind: 'Impersonate',
+          type: 'impersonate',
+          agentId: id
+        };
+      }).filter(Boolean);
+
+      // Numeric query: ensure exact-id hit isn't missed by the server search.
+      if (/^\d+$/.test(term)) {
+        try {
+          const exact = await haloApiRequest(`/api/agent/${Number(term)}`);
+          if (exact && exact.id != null) {
+            const dup = mapped.find(m => String(m.agentId) === String(exact.id));
+            if (!dup) {
+              mapped.unshift({
+                title: exact.name || exact.username || `Agent ${exact.id}`,
+                subtitle: `${exact.email || exact.emailaddress || 'Agent'} - id ${exact.id}`,
+                kind: 'Impersonate',
+                type: 'impersonate',
+                agentId: exact.id
+              });
+            }
+          }
+        } catch (_) {}
+      }
+
+      return mapped.slice(0, 10);
+    } catch (_) {
+      // SQL fallback — only useful for admins. Non-admins will get an empty
+      // array since /api/Report 403s.
+    }
+
+    if (HU.reportApiOk === false) return [];
+
     const escaped = sqlEscape(query);
     const numeric = /^\d+$/.test(query);
     const where = numeric
@@ -2537,6 +4344,11 @@ ORDER BY
   }
 
   async function searchHaloRecords(query) {
+    // Open-ended palette search relies entirely on /api/Report SQL. Non-admin
+    // agents 403 on every keystroke — skip the whole batch so we don't flood
+    // the network tab with guaranteed failures.
+    if (HU.reportApiOk === false) return [];
+
     const escaped = sqlEscape(query);
     const numeric = /^\d+$/.test(query);
     const clauses = numeric ? [] : [
@@ -2635,16 +4447,16 @@ ${orderBy}
   }
 
   function formatSearchResultTitle(def, row) {
-    if (def.routeType === 'ticket') {
+    if (def.routeType === 'ticket' || def.route === 'ticket') {
       const num = formatTicketNumber(row.id);
       if (def.emailTag) {
         const tag = typeof def.emailTag === 'object' ? def.emailTag : { start: def.emailTag, end: ']' };
-        return `${tag.start}${num}${tag.end} - ${row.title || 'Untitled ticket'}`;
+        return `${tag.start}${num}${tag.end} ${row.title || 'Untitled ticket'}`;
       }
       if (def.ticketPrefix) {
-        return `[${def.ticketPrefix}] ${num} - ${row.title || 'Untitled ticket'}`;
+        return `[${def.ticketPrefix}-${num}] ${row.title || 'Untitled ticket'}`;
       }
-      return `${num} - ${row.title || 'Untitled ticket'}`;
+      return `[#${num}] ${row.title || 'Untitled ticket'}`;
     }
     return row.title || `${def.kind} ${row.id}`;
   }
@@ -2656,20 +4468,51 @@ ${orderBy}
 
   function makePaletteButton(item, index) {
     const button = document.createElement('button');
-    button.className = `hu-result ${index === HU.selectedIndex ? 'hu-active' : ''}`;
+    if (item.loading) {
+      button.className = 'hu-result hu-result-loading';
+      button.dataset.resultIndex = String(index);
+      button.setAttribute('aria-busy', 'true');
+      button.type = 'button';
+      button.innerHTML = `
+        <span>
+          <span class="hu-result-title"><span class="hu-spinner"></span>${escapeHtml(item.title || 'Searching…')}</span>
+          <span class="hu-result-sub">${escapeHtml(item.subtitle || '')}</span>
+        </span>
+        <span class="hu-result-kind"></span>
+      `;
+      return button;
+    }
+    const disabled = !!item.disabled;
+    button.className = `hu-result ${index === HU.selectedIndex ? 'hu-active' : ''} ${disabled ? 'hu-disabled' : ''}`.trim();
     button.dataset.resultIndex = String(index);
+    if (disabled) {
+      button.setAttribute('aria-disabled', 'true');
+      if (item.disabledReason) button.title = item.disabledReason;
+    }
     const kindClass = item.subCount > 0 ? 'hu-result-kind hu-result-kind-accent' : 'hu-result-kind';
+    const kindLabel = disabled ? 'No access' : (item.kind || item.type || 'Action');
+    // Ticket-status pill: small coloured chip prepended to the subtitle. Colour
+    // comes from Halo's cache_status; sanitised to a hex/rgb match so the
+    // user-controlled string can't break out into other CSS rules.
+    let statusHtml = '';
+    if (item.status && item.status.name) {
+      const raw = String(item.status.colour || '').trim();
+      const safeColor = /^#[0-9a-f]{3,8}$/i.test(raw) ? raw
+                      : /^rgb(a)?\([^)]+\)$/i.test(raw) ? raw
+                      : '#5b6478';
+      statusHtml = `<span class="hu-status-pill" style="background:${safeColor}">${escapeHtml(item.status.name)}</span>`;
+    }
     button.innerHTML = `
       <span>
         <span class="hu-result-title">${escapeHtml(item.displayTitle || item.title)}</span>
-        <span class="hu-result-sub">${escapeHtml(item.subtitle || '')}</span>
+        <span class="hu-result-sub">${statusHtml}${escapeHtml(disabled && item.disabledReason ? item.disabledReason : (item.subtitle || ''))}</span>
       </span>
-      <span class="${kindClass}">${escapeHtml(item.kind || item.type || 'Action')}</span>
+      <span class="${kindClass}">${escapeHtml(kindLabel)}</span>
     `;
     button.addEventListener('mousemove', () => {
       if (HU.selectedIndex !== index) setPaletteSelection(index);
     });
-    button.addEventListener('click', () => activateResult(item));
+    if (!disabled) button.addEventListener('click', () => activateResult(item));
     return button;
   }
 
@@ -2734,6 +4577,8 @@ ${orderBy}
   }
 
   async function activateResult(item) {
+    if (item.disabled) return;
+
     if (item.type === 'show-all') {
       HU.paletteShowAll = true;
       HU.paletteResults = getDefaultCommandResults();
@@ -2983,17 +4828,30 @@ ${orderBy}
   }
 
   function getBuiltinCommandResults() {
-    return BASE_COMMANDS
-      .filter(isPaletteCommandAvailable)
-      .map(command => ({
-        ...command,
-        displayTitle: `/${command.id}`,
-        subtitle: command.subtitle ? `${command.title} - ${command.subtitle}` : command.title,
-        kind: command.kind || 'Tools',
-        ...(command.id === 'cfg'
-          ? { isCfgEntry: true, subCount: CONFIG_SECTIONS.length, kind: `${CONFIG_SECTIONS.length} ›` }
-          : {})
-      }));
+    const all = [...BASE_COMMANDS, ...HU.ticketTypeCommands].filter(isPaletteCommandAvailable);
+    // Lazy: kick off count/tag fetches for these commands' typeIds. Already-
+    // fetched IDs are skipped, and the fetcher re-renders the palette when
+    // new data arrives. Scheduled async so it doesn't block this synchronous
+    // render path.
+    setTimeout(() => scheduleVisibleCommandFetches(all), 0);
+    return all
+      .map(command => {
+        const disabled = isEntityCommandDisabled(command.id);
+        const openCount = getCommandOpenCount(command.id);
+        return {
+          ...command,
+          displayTitle: `/${command.id}`,
+          subtitle: command.subtitle ? `${command.title} - ${command.subtitle}` : command.title,
+          kind: openCount != null ? `${openCount} open` : (command.kind || 'Tools'),
+          subCount: openCount != null ? openCount : undefined,
+          disabled,
+          disabledReason: disabled ? entityDisabledTooltip(command.id) : '',
+          ...(command.id === 'cfg'
+            ? { isCfgEntry: true, subCount: CONFIG_SECTIONS.length, kind: `${CONFIG_SECTIONS.length} ›` }
+            : {})
+        };
+      })
+      .sort((a, b) => Number(a.disabled) - Number(b.disabled));
   }
 
   function isPaletteCommandAvailable(item) {
@@ -3001,6 +4859,15 @@ ${orderBy}
     if (['360', 'tl'].includes(item.id)) return Boolean(getCurrentTicketId());
     if (item.id === 'j') return Boolean(detectRecordFromUrl());
     if (item.id === 'f') return Boolean(document.body);
+
+    // Permission gating for admin-only or claim-gated commands. Hidden entirely
+    // for users who can't run them — entity-search greying applies to typed
+    // searches; these are action commands with no useful "preview" state.
+    const perms = readHaloPermissions();
+    if (item.id === 'imp' && !perms.canImpersonate) return false;
+    if (item.id === 'xi'  && !perms.isImpersonating) return false;
+    if (item.id === 'cfg' && !perms.isAdmin) return false;
+
     return true;
   }
 
@@ -3049,15 +4916,21 @@ ${orderBy}
       const command = BASE_COMMANDS.find(item => item.id === id)
         || HU.ticketTypeCommands.find(item => item.id === id);
       if (!isPaletteCommandAvailable(command)) return null;
-      return command ? {
+      if (!command) return null;
+      const disabled = isEntityCommandDisabled(command.id);
+      const openCount = getCommandOpenCount(command.id);
+      return {
         ...command,
         displayTitle: entry.displayTitle || `/${command.id}`,
         subtitle: command.subtitle ? `${command.title} - ${command.subtitle}` : command.title,
-        kind: command.kind || 'Tools',
+        kind: openCount != null ? `${openCount} open` : (command.kind || 'Tools'),
+        subCount: openCount != null ? openCount : undefined,
+        disabled,
+        disabledReason: disabled ? entityDisabledTooltip(command.id) : '',
         ...(command.id === 'cfg'
           ? { isCfgEntry: true, subCount: CONFIG_SECTIONS.length, kind: `${CONFIG_SECTIONS.length} ›` }
           : {})
-      } : null;
+      };
     }
 
     if (entry.key.startsWith('custom:')) {
@@ -3132,7 +5005,8 @@ ${orderBy}
     try {
       let types = [];
 
-      // SQL: rtGID holds the email start tag (e.g. "[IN-"), rtGIDEND holds the closing (e.g. "]").
+      // 1. SQL is the richest source — includes rtGID/rtGIDEND email tag overrides
+      // that the localStorage cache doesn't carry. Admins succeed here.
       try {
         const rows = extractRows(await runHaloReport(
           `SELECT RTid AS [id], rtdesc AS [name], ISNULL(rtGID, '') AS [rtGID], ISNULL(rtGIDEND, '') AS [rtGIDEND] FROM requesttype`,
@@ -3141,7 +5015,51 @@ ${orderBy}
         if (rows.length) types = rows;
       } catch (_) {}
 
-      // Static schema as last resort
+      // 2. Halo entity API — returns the full TicketType list. includedetails=true
+      // is required for tag-override fields (email_start_tag_override etc.) on
+      // many Halo tenants; without it the list is the same skinny shape as
+      // localStorage.cache_tickettype. Works for non-admin agents.
+      if (!types.length) {
+        try {
+          const response = await haloApiRequest('/api/TicketType?count=200&includedetails=true');
+          const arr = extractEntityList(response, 'tickettypes');
+          if (Array.isArray(arr) && arr.length) {
+            types = arr.map(t => ({
+              id: t.id != null ? t.id : t.RTid,
+              name: t.name || t.RTDesc || '',
+              rtGID: t.email_start_tag_override || t.start_tag || '',
+              rtGIDEND: t.email_end_tag_override || t.end_tag || ']'
+            })).filter(t => t.id != null && t.name);
+          }
+        } catch (_) {
+          // /api/TicketType may not exist on older Halo tenants; fall through.
+        }
+      }
+
+      // 3. Halo's localStorage cache. Populated on every page load and contains
+      // the tenant's full ticket-type list. Email tag fields may be present
+      // under shorter names than the API exposes (cache is space-optimized).
+      // If a tag is missing we fall back to the 2-letter slug prefix later.
+      if (!types.length) {
+        try {
+          const cacheRaw = localStorage.getItem('cache_tickettype');
+          const cacheArr = cacheRaw ? JSON.parse(cacheRaw) : null;
+          if (Array.isArray(cacheArr) && cacheArr.length) {
+            types = cacheArr.map(t => ({
+              id: t.id != null ? t.id : t.RTid,
+              name: t.name || t.RTDesc || '',
+              rtGID: t.email_start_tag_override || t.override_email_start_tag ||
+                     t.overrideEmailStartTag || t.start_tag || t.starttag ||
+                     t.prefix || t.rtGID || '',
+              rtGIDEND: t.email_end_tag_override || t.override_email_end_tag ||
+                        t.overrideEmailEndTag || t.end_tag || t.endtag ||
+                        t.suffix || t.rtGIDEND || ']'
+            })).filter(t => t.id != null && t.name);
+          }
+        } catch (_) {}
+      }
+
+      // 4. Static schema as last resort (built-in types only, no custom types).
       if (!types.length) {
         const resp = await fetch(chrome.runtime.getURL('schema/requesttypes.json'));
         types = await resp.json();
@@ -3160,14 +5078,22 @@ ${orderBy}
         const typeId = Number(id);
         const areaId = getTicketAreaForType(typeId, name);
 
+        // Halo's "All Ticket Types" area lets us filter to one specific type
+        // via selid=<typeId>, regardless of which Halo area the type lives in.
+        // Confirmed working for Laptop Request (typeId 10 → area=12&selid=10).
+        const typeListUrl = `/tickets?area=12&mainview=tickettype&viewid=1` +
+                            `&selid=${encodeURIComponent(typeId)}` +
+                            `&sellevel=1&selparentid=${encodeURIComponent('All Ticket Types')}`;
+
         HU.ticketTypeCommands.push({
           id: slug,
           title: name,
           subtitle: `Open ${name} ticket list`,
-          run: () => window.location.assign(new URL(`/tickets?area=${areaId}`, window.location.origin).href),
+          run: () => window.location.assign(new URL(typeListUrl, window.location.origin).href),
           keywords: [slug],
           type: 'command',
-          kind: 'Ticket Types'
+          kind: 'Ticket Types',
+          typeId
         });
 
         HU.ticketTypeSearchMap[slug] = {
@@ -3409,7 +5335,8 @@ ${orderBy}
       ['Enter', 'Open the selected result'],
       ['Esc', 'Close the palette or panel'],
       ['Arrow Up / Down', 'Move through results'],
-      ['/t 2937', 'Open or search tickets by ID or text'],
+      ['Arrow Right', 'Autocomplete the highlighted command (e.g. /peri → /peripherals-request)'],
+      ['/t 2937', 'Open or search tickets by ID or text — partial IDs work too'],
       ['/i 2937', 'Open or search incidents by ID or text'],
       ['/c acme', 'Search customers by name or ID'],
       ['/a alex', 'Search agents by name or ID'],
@@ -3420,16 +5347,19 @@ ${orderBy}
       ['/chg', 'Open change requests'],
       ['/req', 'Open requests'],
       ['/prj', 'Open projects'],
-      ['/cfg', 'Open configuration'],
+      ['Custom types', 'Every tenant ticket type gets its own slash command (e.g. /laptop-request). Type the slug or use Arrow Right to autocomplete.'],
+      ['Open count chip', 'Ticket-scoped commands show the number of open tickets — green chip on the right side of the row.'],
+      ['Status pill', 'Ticket result rows show a coloured status pill matching Halo\'s per-status colour.'],
+      ['/cfg', 'Open configuration (admin only)'],
       ['/rep', 'Open reports'],
-      ['/kb', 'Open the knowledge base'],
+      ['/kb', 'Search the knowledge base'],
       ['/r', 'Open recent Halo records'],
       ['/360', 'Open Ticket 360 for the current ticket'],
       ['/tl', 'Open the current ticket action timeline'],
       ['/f', 'Toggle API field names'],
       ['/j', 'Inspect the current record payload'],
       ['/api', 'Browse all Halo REST API endpoints'],
-      ['/imp alex', 'Search agents and impersonate the selected agent'],
+      ['/imp alex', 'Search agents and impersonate the selected (admin only)'],
       ['/xi', 'Exit the impersonated Halo session'],
       ['/sc', 'Save the current page as a shortcut']
     ];
@@ -3512,6 +5442,1562 @@ ${orderBy}
     return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(d);
   }
 
+  // ---------- Ticket 360 v2 helper renderers ----------
+
+  // Single top-of-panel banner. Highest-priority condition wins so the
+  // section stays compact (multi-row banner stacks look noisy in the dark
+  // drawer). Approval > VIP > Important > Major incident.
+  function renderTicket360Banners(ticket) {
+    const SVG = {
+      approval:  '<svg class="hu-360-banner-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2h6M5 14h6M5 2v3l3 3-3 3v3M11 2v3l-3 3 3 3v3"/></svg>',
+      vip:       '<svg class="hu-360-banner-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5l1.85 4.4 4.65.4-3.5 3.1L12.1 14 8 11.6 3.9 14l1.1-4.6L1.5 6.3l4.65-.4z"/></svg>',
+      important: '<svg class="hu-360-banner-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v4M8 11v0.5"/></svg>',
+      major:     '<svg class="hu-360-banner-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l6 11H2z"/><path d="M8 7v3M8 11.5v0.5"/></svg>'
+    };
+
+    let kind = null, text = '';
+    // Awaiting approval: requires both a current step number AND a non-empty
+    // step name. Halo keeps approval_process_step/_id populated on tickets
+    // that USED to require approval but are now approved, so the empty
+    // step_name is our signal that approval has actually completed.
+    const apprStepName = String(ticket.approval_process_step_name || '').trim();
+    if (ticket.approval_process_id && Number(ticket.approval_process_step) > 0 && apprStepName) {
+      kind = 'approval';
+      const group = String(ticket.approval_process_group_name || '').trim();
+      const parts = [apprStepName, group].filter(Boolean).join(' · ');
+      text = `Awaiting approval — ${parts}`;
+    } else if (ticket.is_vip || ticket.user?.is_vip || ticket.user?.client?.is_vip) {
+      kind = 'vip';
+      text = 'VIP customer — this ticket is from a high-priority account.';
+    } else if (ticket.isimportantcontact || ticket.user?.isimportantcontact) {
+      kind = 'important';
+      text = 'Key contact at this client — handle communications with extra care.';
+    } else if (/major.?incident/i.test(String(ticket.tickettype?.name || ''))) {
+      kind = 'major';
+      text = 'Major Incident — alert subscribers as needed.';
+    }
+    if (!kind) return null;
+
+    const el = document.createElement('div');
+    el.className = `hu-360-banner hu-360-banner-${kind}`;
+    el.innerHTML = `${SVG[kind]}<span class="hu-360-banner-text">${escapeHtml(text)}</span>`;
+    return el;
+  }
+
+  // Aging + activity badges. Compact "open 3d · 7 actions · last touched 2h"
+  // chip row that sits in the hero, gives the agent an instant temperature read.
+  // SLA half-donut: single ring showing the most critical SLA. We rank
+  // by worst state class (danger > warn > ok), then by highest percent
+  // used so the agent always sees the SLA closest to (or past) breach.
+  // Center shows time-remaining; label below names the SLA + percent.
+  function renderTicket360SlaDonut(ticket) {
+    const opened = ticket.dateoccurred || ticket.datecreated;
+    const closed = (() => {
+      const c = ticket.dateclosed || ticket.datecleared;
+      if (!c || !opened) return c;
+      return new Date(c).getTime() < new Date(opened).getTime() ? '' : c;
+    })();
+    if (!opened) return '';
+    const od = new Date(opened).getTime();
+    const cd = closed ? new Date(closed).getTime() : null;
+    const now = cd || Date.now();
+
+    // Halo doesn't expose a `dateresponded` field — it advances
+    // `slaactiondate` past respondbydate when the Respond stage completes.
+    const respondDueIso = ticket.respondbydate || ticket.first_respond_by_date;
+    const respondMet = !!(respondDueIso && ticket.slaactiondate &&
+      new Date(ticket.slaactiondate).getTime() > new Date(respondDueIso).getTime());
+
+    const calc = (dueIso, name, metIso, metFlag) => {
+      if (!dueIso) return null;
+      const dd = new Date(dueIso).getTime();
+      if (!dd || dd <= od) return null;
+      const md = metIso ? new Date(metIso).getTime() : null;
+      const validMd = Number.isFinite(md) && md > od;
+      const stopTime = validMd ? md : (cd || null);
+      const stopNow = stopTime || Date.now();
+      const usedPct = Math.min(Math.max((stopNow - od) / (dd - od), 0), 1);
+
+      let cls, note, isMet = false, pct;
+      if (validMd) {
+        isMet = true;
+        pct = 1;
+        if (md <= dd) { cls = 'is-ok'; note = 'Met'; }
+        else { cls = 'is-danger'; note = `Met (${formatDurationShort(md - dd)} over)`; }
+      } else if (metFlag) {
+        isMet = true;
+        pct = 1;
+        cls = 'is-ok';
+        note = 'Met';
+      } else {
+        pct = usedPct;
+        cls = pct < 0.5 ? 'is-ok' : pct < 0.9 ? 'is-warn' : 'is-danger';
+        const diffMs = dd - Date.now();
+        note = cd ? 'Closed'
+          : diffMs > 0 ? `${formatDurationShort(diffMs)} left`
+          : `${formatDurationShort(-diffMs)} over`;
+      }
+      return { name, pct, cls, note, isMet };
+    };
+    const slas = [
+      calc(respondDueIso, 'Respond', null, respondMet),
+      calc(ticket.fixbydate, 'Fix', cd ? new Date(cd).toISOString() : null, false)
+    ].filter(Boolean);
+    if (!slas.length) return '';
+
+    // Pick the most critical: active SLAs always beat met ones (no point
+    // surfacing a finished deadline), then worst class, then highest %.
+    const classOrder = { 'is-ok': 0, 'is-warn': 1, 'is-danger': 2 };
+    const critical = slas.slice().sort((a, b) => {
+      // Active (not met) wins over met.
+      if (a.isMet !== b.isMet) return a.isMet ? 1 : -1;
+      const co = classOrder[b.cls] - classOrder[a.cls];
+      return co !== 0 ? co : b.pct - a.pct;
+    })[0];
+
+    const W = 140, H = 48;
+    const cx = W / 2, cy = H - 4;
+    const r = 40, stroke = 8;
+    const arcPath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
+    const arcLen = Math.PI * r;
+    // Animated fill via stroke-dashoffset: start with the arc fully hidden
+    // (offset = full arc length) and ease down to the target offset.
+    const targetOffset = (arcLen * (1 - critical.pct)).toFixed(2);
+    const tipParts = slas.map(s => `${s.name}: ${Math.round(s.pct * 100)}% (${s.note})`);
+
+    return `<div class="hu-360-sla-donut" title="${escapeHtml(tipParts.join('\n'))}">
+      <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">
+        <path d="${arcPath}" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" class="hu-360-sla-donut-track"/>
+        <path d="${arcPath}" fill="none" stroke-width="${stroke}" stroke-linecap="round"
+          class="hu-360-sla-donut-fill ${critical.cls}"
+          style="stroke-dasharray:${arcLen.toFixed(2)} ${arcLen.toFixed(2)}; --sla-arc-len:${arcLen.toFixed(2)}; --sla-end-offset:${targetOffset};"/>
+      </svg>
+      <div class="hu-360-sla-donut-center ${critical.cls}">${escapeHtml(critical.note)}</div>
+    </div>`;
+  }
+
+  function renderTicket360AgingBadges(ticket, actions) {
+    const opened = ticket.dateoccurred || ticket.datecreated;
+    const lastUpdate = ticket.last_update || ticket.lastactiondate || '';
+    const badges = [];
+    if (opened) {
+      const days = Math.max(0, Math.floor((Date.now() - new Date(opened).getTime()) / 86400000));
+      badges.push(days === 0 ? 'Opened today' : `Open ${days}d`);
+    }
+    if (actions?.length) badges.push(`${actions.length} action${actions.length === 1 ? '' : 's'}`);
+    if (lastUpdate) badges.push(`Last touched ${timeAgo(lastUpdate)}`);
+    if (!badges.length) return '';
+    return `<div class="hu-360-aging">${badges.map(b =>
+      `<span class="hu-360-aging-chip">${escapeHtml(b)}</span>`
+    ).join('')}</div>`;
+  }
+
+  // Quick-action pill buttons.
+  //   Note   — inline note editor (POST /api/actions)
+  //   Time   — quick time-entry editor (POST /api/actions with timetaken)
+  //   Flag   — toggles ticket.flagged
+  // Status removed — clicking the status chip already opens the picker.
+  function renderTicket360QuickActionsHtml(ticketId, flagged) {
+    const svg = (path) => `<svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+    const icons = {
+      note: svg('<path d="M11.5 2.5l2 2L5 13H3v-2z"/><path d="M9 4l3 3"/>'),
+      time: svg('<circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 1.5"/>'),
+      flag: svg('<path d="M3 14V2"/><path d="M3 3h9l-2 3 2 3H3"/>'),
+      link: svg('<path d="M7 9a3 3 0 0 0 4 0l2-2a3 3 0 0 0-4-4L8 4"/><path d="M9 7a3 3 0 0 0-4 0L3 9a3 3 0 0 0 4 4l1-1"/>')
+    };
+    const flagFill = flagged ? 'fill="currentColor"' : 'fill="none"';
+    const flagIcon = `<svg viewBox="0 0 16 16" width="11" height="11" ${flagFill} stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14V2"/><path d="M3 3h9l-2 3 2 3H3" ${flagFill}/></svg>`;
+    return `<div class="hu-360-quick-actions">
+      <button type="button" class="hu-360-quick-btn" data-action="note">${icons.note}<span>Note</span></button>
+      <button type="button" class="hu-360-quick-btn" data-action="time">${icons.time}<span>Time</span></button>
+      <button type="button" class="hu-360-quick-btn" data-action="flag" aria-pressed="${flagged ? 'true' : 'false'}">${flagIcon}<span>${flagged ? 'Flagged' : 'Flag'}</span></button>
+      <button type="button" class="hu-360-quick-btn" data-action="copy-link" title="Copy link to this ticket">${icons.link}<span>Copy link</span></button>
+    </div>`;
+  }
+
+  // Fetch a workflow's stages from /api/Workflow/{id}. Cached per session
+  // (workflow definitions rarely change). Returns an array of {id, name, seq}.
+  async function fetchWorkflowStages(workflowId) {
+    if (!workflowId) return [];
+    if (!HU.workflowCache) HU.workflowCache = {};
+    if (HU.workflowCache[workflowId]) return HU.workflowCache[workflowId];
+    try {
+      const detail = await haloApiRequest(`/api/Workflow/${encodeURIComponent(workflowId)}?includedetails=true`);
+      const arr = detail.flow_stages || detail.stages || detail.steps || detail.flowstages || [];
+      const stages = (Array.isArray(arr) ? arr : []).map(s => ({
+        id: s.id || s.sid || s.stageid,
+        name: String(s.name || s.stage_name || s.label || '').trim(),
+        seq:  Number(s.sequence_no || s.seq || s.sequence || 0),
+        // Status that this stage parks the ticket in. Used by the status
+        // picker to filter cache_status down to only the statuses reachable
+        // from this workflow.
+        status_id: s.status_id != null ? Number(s.status_id)
+                  : s.statusid != null ? Number(s.statusid)
+                  : (s.status && typeof s.status === 'object' ? Number(s.status.id) : null)
+      })).filter(s => s.name);
+      stages.sort((a, b) => a.seq - b.seq);
+      HU.workflowCache[workflowId] = stages;
+      return stages;
+    } catch (_) {
+      HU.workflowCache[workflowId] = [];
+      return [];
+    }
+  }
+
+  // Workflow & SLA section — segmented workflow bar, two class-driven SLA
+  // bars, and a date grid. No SVG arc. Renders as a flat .hu-360-sec.
+  function renderTicket360StatusCard(ticket, summary /*, slaArcHtml — ignored */) {
+    const openedIso = ticket.dateoccurred || ticket.datecreated;
+    const closedIso = (() => {
+      const c = ticket.dateclosed || ticket.datecleared;
+      if (!c || !openedIso) return c;
+      return new Date(c).getTime() < new Date(openedIso).getTime() ? '' : c;
+    })();
+
+    // Halo doesn't expose a `dateresponded` field. Instead it advances
+    // `slaactiondate` to the next stage as each SLA stage completes.
+    // When slaactiondate has moved past respondbydate, the Respond stage
+    // is done. For Fix, we use dateclosed as the met time so we get the
+    // accurate on-time-vs-late split.
+    const respondDueIso = ticket.respondbydate || ticket.first_respond_by_date;
+    const respondMet = !!(respondDueIso && ticket.slaactiondate &&
+      new Date(ticket.slaactiondate).getTime() > new Date(respondDueIso).getTime());
+
+    // Build a bar. metIso = exact met timestamp (used for on-time/late split);
+    // metFlag = "we know it was met but don't have the exact time" (treats
+    // as on-time since we can't prove otherwise without the timestamp).
+    const buildBar = (label, dueIso, metIso, metFlag) => {
+      if (!openedIso || !dueIso) return null;
+      const od = new Date(openedIso).getTime();
+      const dd = new Date(dueIso).getTime();
+      if (!od || !dd || dd <= od) return null;
+      const cd = closedIso ? new Date(closedIso).getTime() : null;
+      const md = metIso ? new Date(metIso).getTime() : null;
+      const validMd = Number.isFinite(md) && md > od;
+      const stopTime = validMd ? md : cd;
+      const now = stopTime || Date.now();
+      const usedPct = Math.min(Math.max((now - od) / (dd - od), 0), 1);
+
+      let cls, noteLeft, pct;
+      if (validMd) {
+        pct = 1;
+        if (md <= dd) {
+          cls = 'is-ok';
+          noteLeft = 'Met';
+        } else {
+          cls = 'is-danger';
+          noteLeft = `Met (${formatDurationShort(md - dd)} over)`;
+        }
+      } else if (metFlag) {
+        // No exact met timestamp — show as on-time Met. The detail SLA bars
+        // below the donut would surface a breach via Halo's other signals.
+        pct = 1;
+        cls = 'is-ok';
+        noteLeft = 'Met';
+      } else {
+        pct = usedPct;
+        cls = pct < 0.5 ? 'is-ok' : pct < 0.9 ? 'is-warn' : 'is-danger';
+        const diffMs = dd - Date.now();
+        noteLeft = cd ? 'Closed'
+          : diffMs > 0 ? `${formatDurationShort(diffMs)} left`
+          : `${formatDurationShort(-diffMs)} over`;
+      }
+      return { label, pctPx: Math.round(pct * 100), cls, noteLeft };
+    };
+    const respondBar = buildBar('Respond', respondDueIso, null, respondMet);
+    const fixBar     = buildBar('Fix',     ticket.fixbydate, closedIso, false);
+    const bars = [respondBar, fixBar].filter(Boolean);
+
+    const workflowName = String(ticket.workflow_name || '').trim();
+    const currentStepName = String(ticket.workflow_step || '').trim();
+    const current = Math.max(1, Number(ticket.workflow_seq) || 1);
+
+    // Render a placeholder bar (5 segments). Once fetchWorkflowStages
+    // resolves, replace it with the real-stage version. Re-render is
+    // in-place so the rest of the section doesn't flicker.
+    const placeholderTotal = 5;
+    const segmentsHtml = (count, cur, names) => Array.from({ length: count }).map((_, i) => {
+      const cls = i < cur - 1 ? 'is-on' : i === cur - 1 ? 'is-current' : '';
+      const title = names && names[i] ? `title="${escapeHtml(names[i])}"` : '';
+      return `<div class="hu-360-wf-seg ${cls}" ${title}></div>`;
+    }).join('');
+
+    const sec = document.createElement('section');
+    sec.className = 'hu-360-sec hu-360-status-card';
+    sec.innerHTML = `
+      <div class="hu-360-sec-h">Workflow &amp; SLA</div>
+      ${workflowName ? `
+        <div class="hu-360-wf-row">
+          <div class="hu-360-wf-name">${escapeHtml(workflowName)}</div>
+          <div class="hu-360-wf-step">${currentStepName ? escapeHtml(currentStepName) + ' · ' : ''}Step ${escapeHtml(String(current))} of ${escapeHtml(String(placeholderTotal))}</div>
+        </div>` : ''}
+      <div class="hu-360-wf-bar${closedIso ? '' : ' is-active'}" data-wf-bar>${segmentsHtml(placeholderTotal, current)}</div>
+
+      ${bars.length ? `<div class="hu-360-status-bars">
+        ${bars.map(b => `
+          <div class="hu-360-sla-row">
+            <div class="hu-360-sla-label-row">
+              <span class="hu-360-sla-label">${escapeHtml(b.label)}</span>
+              <span class="hu-360-sla-due ${b.cls}">${escapeHtml(b.noteLeft)}</span>
+            </div>
+            <div class="hu-360-sla-track"><div class="hu-360-sla-fill ${b.cls}" style="width:${b.pctPx}%;--sla-target-width:${b.pctPx}%"></div></div>
+          </div>`).join('')}
+      </div>` : ''}
+
+      <div class="hu-360-dates">
+        <span class="hu-360-dates-k">Opened</span>
+        <span class="hu-360-dates-v">${escapeHtml(formatDateTime(openedIso) || '--')}</span>
+        <span class="hu-360-dates-k">${closedIso ? 'Closed' : 'Due'}</span>
+        <span class="hu-360-dates-v">${escapeHtml(formatDateTime(closedIso || ticket.fixbydate) || '--')}</span>
+      </div>`;
+
+    // Async-replace the placeholder bar with real Halo workflow stages.
+    if (ticket.workflow_id) {
+      fetchWorkflowStages(ticket.workflow_id).then(stages => {
+        if (!stages.length) return;
+        const bar = sec.querySelector('[data-wf-bar]');
+        const stepLabel = sec.querySelector('.hu-360-wf-step');
+        if (!bar) return;
+        // Resolve the current stage index: prefer matching the step NAME
+        // (most reliable), then fall back to workflow_seq.
+        const nameLc = String(ticket.workflow_step || '').toLowerCase();
+        let idx = stages.findIndex(s => String(s.name).toLowerCase() === nameLc);
+        if (idx < 0) idx = Math.min(stages.length - 1, Math.max(0, current - 1));
+        const names = stages.map(s => s.name);
+        bar.innerHTML = segmentsHtml(stages.length, idx + 1, names);
+        // Pulse only while the workflow is still progressing — drop the
+        // is-active flag once we know the ticket is on the final stage,
+        // even if the close date hasn't been written yet.
+        if (idx >= stages.length - 1) bar.classList.remove('is-active');
+        if (stepLabel) {
+          const stepName = stages[idx]?.name || ticket.workflow_step || '';
+          stepLabel.textContent = `${stepName ? stepName + ' · ' : ''}Step ${idx + 1} of ${stages.length}`;
+        }
+      }).catch(() => {});
+    }
+    return sec;
+  }
+
+  // Short "2d 4h" / "45m" formatter for SLA bar notes.
+  function formatDurationShort(ms) {
+    if (!Number.isFinite(ms) || ms < 0) return '0m';
+    const mins = Math.floor(ms / 60000);
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 48) return `${hours}h`;
+    return `${Math.floor(hours / 24)}d`;
+  }
+
+  // Custom fields — Halo's per-ticket-type fields with their current values.
+  // For a Laptop Request these contain "Laptop Type: Standard", "Justification: ...",
+  // etc. Currently invisible without this card. Filter out empties and Halo's
+  // own internal/system fields.
+  function renderTicket360CustomFields(ticket) {
+    const fields = Array.isArray(ticket.customfields) ? ticket.customfields : [];
+    const rows = fields.map(f => {
+      const label = String(f.label || f.name || '').trim();
+      const display = String(f.display || '').trim();
+      if (!label || !display) return null;
+      // Skip fields that mirror the summary or details (would just be noise).
+      if (/^description$|^summary$|^details$/i.test(label)) return null;
+      return { label, display };
+    }).filter(Boolean);
+
+    if (!rows.length) return null;
+
+    const card = document.createElement('div');
+    card.className = 'hu-card hu-360-custom-fields';
+    card.style.marginBottom = '10px';
+    card.innerHTML = `<div class="hu-section-title">Custom fields <span class="hu-360-field-count">${rows.length}</span></div>`;
+    const grid = document.createElement('div');
+    grid.className = 'hu-360-cf-grid';
+    rows.forEach(r => {
+      const cell = document.createElement('div');
+      cell.className = 'hu-360-cf-cell';
+      cell.innerHTML = `<div class="hu-360-cf-label">${escapeHtml(r.label)}</div>
+        <div class="hu-360-cf-value">${escapeHtml(r.display)}</div>`;
+      grid.appendChild(cell);
+    });
+    card.appendChild(grid);
+    return card;
+  }
+
+  // Status transitions mini-timeline — pluck "status change" actions from the
+  // action list and show them as a horizontal stepper. Tells the agent at a
+  // glance how the ticket has moved through the workflow over time.
+  function renderTicket360StatusTransitions(actions) {
+    const transitions = (actions || []).filter(a => {
+      const o = String(a['Outcome'] || '').toLowerCase();
+      return /status|changed.*status|transition|reopen|resolved|closed/.test(o);
+    }).slice(-6);
+    if (transitions.length < 2) return null;
+
+    const card = document.createElement('div');
+    card.className = 'hu-card hu-360-transitions';
+    card.style.marginBottom = '10px';
+    card.innerHTML = '<div class="hu-section-title">Status history</div>';
+    const track = document.createElement('div');
+    track.className = 'hu-360-trans-track';
+    transitions.forEach((a, i) => {
+      const isLast = i === transitions.length - 1;
+      track.innerHTML += `
+        <div class="hu-360-trans-step">
+          <div class="hu-360-trans-dot"></div>
+          <div class="hu-360-trans-label">${escapeHtml(String(a['Outcome'] || '').replace(/^status\s*/i, ''))}</div>
+          <div class="hu-360-trans-time">${escapeHtml(timeAgo(a['When']))}</div>
+        </div>
+        ${isLast ? '' : '<div class="hu-360-trans-arrow">→</div>'}`;
+    });
+    card.appendChild(track);
+    return card;
+  }
+
+  // KB suggestion — if Halo's ticket-rule matched a KB article, show it here
+  // so the agent doesn't have to search. One extra /api/KBArticle/{id} call.
+  async function renderTicket360KbSuggestion(ticket) {
+    const kbId = Number(ticket.matched_kb_id || 0);
+    if (!kbId) return null;
+    try {
+      const kb = await haloApiRequest(`/api/KBArticle/${kbId}?includedetails=true`);
+      if (!kb || !kb.id) return null;
+      const title = String(kb.name || kb.title || kb.abstract || `KB #${kb.id}`).trim();
+      const abstract = String(kb.abstract || kb.description || '').trim();
+      const card = document.createElement('div');
+      card.className = 'hu-card hu-360-kb';
+      card.style.marginBottom = '10px';
+      card.innerHTML = `
+        <div class="hu-section-title-row">
+          <span class="hu-section-title" style="margin:0">📘 Suggested KB article</span>
+          <a href="/kb?id=${escapeHtml(String(kb.id))}" class="hu-360-kb-open">Open</a>
+        </div>
+        <div class="hu-360-kb-title">${escapeHtml(title)}</div>
+        ${abstract ? `<div class="hu-360-kb-abstract">${escapeHtml(abstract.slice(0, 240))}${abstract.length > 240 ? '…' : ''}</div>` : ''}`;
+      return card;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Linked records — children, parent, assets, same-user open tickets. All
+  // fetched in parallel; renders a compact chip row that links into Halo.
+  async function renderTicket360LinkedRecords(ticket) {
+    const ticketId = Number(ticket.id);
+    const userId   = Number(ticket.user_id || 0);
+    const parentId = Number(ticket.createdfrom_id || 0);
+    const probes = [
+      // Child tickets created from this one.
+      haloApiRequest(`/api/tickets?parent_id=${ticketId}&count=20&open_only=false`).catch(() => null),
+      // Other open tickets from the same user (excluding this one).
+      userId ? haloApiRequest(`/api/tickets?user_id=${userId}&count=20&open_only=true`).catch(() => null) : null,
+      // Assets linked to this ticket (where supported).
+      haloApiRequest(`/api/asset?ticket_id=${ticketId}&count=20`).catch(() => null)
+    ];
+    const [childResp, userResp, assetResp] = await Promise.all(probes);
+
+    const children = extractEntityList(childResp || {}, 'tickets').filter(t => Number(t.id) !== ticketId);
+    const userTickets = extractEntityList(userResp || {}, 'tickets').filter(t => Number(t.id) !== ticketId);
+    const assets = extractEntityList(assetResp || {}, 'assets');
+
+    if (!children.length && !userTickets.length && !assets.length && !parentId) return null;
+
+    const card = document.createElement('div');
+    card.className = 'hu-card hu-360-linked';
+    card.style.marginBottom = '10px';
+    card.innerHTML = '<div class="hu-section-title">Linked records</div>';
+
+    const addGroup = (label, items, urlFor) => {
+      if (!items?.length) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'hu-360-linked-group';
+      wrap.innerHTML = `<div class="hu-360-linked-label">${escapeHtml(label)} <span class="hu-360-linked-count">${items.length}</span></div>`;
+      const chips = document.createElement('div');
+      chips.className = 'hu-360-linked-chips';
+      items.slice(0, 6).forEach(item => {
+        const chip = document.createElement('a');
+        chip.className = 'hu-360-linked-chip';
+        chip.href = urlFor(item);
+        chip.textContent = item._label || String(item.summary || item.name || `#${item.id}`);
+        chip.title = item._title || chip.textContent;
+        chips.appendChild(chip);
+      });
+      wrap.appendChild(chips);
+      card.appendChild(wrap);
+    };
+
+    if (parentId) {
+      addGroup('Parent', [{ id: parentId, summary: `Ticket #${parentId}` }],
+        t => new URL(`/tickets?id=${t.id}`, window.location.origin).href);
+    }
+    addGroup('Children', children, t => new URL(`/tickets?id=${t.id}`, window.location.origin).href);
+    addGroup('Open tickets from this user', userTickets, t => new URL(`/tickets?id=${t.id}`, window.location.origin).href);
+    addGroup('Linked assets', assets, a => new URL(`/assets?id=${a.id}`, window.location.origin).href);
+
+    // If every group was skipped (filtered to empty by addGroup), drop the
+    // section so the user doesn't see a header with no content.
+    if (!card.querySelector('.hu-360-linked-group')) return null;
+    return card;
+  }
+
+  // Similar tickets — search using the first few words of the summary; show
+  // resolved-time average. Cheap triage hint: "this looks like 3 we just
+  // solved — here's how long they took."
+  async function renderTicket360SimilarTickets(ticket) {
+    const summary = String(ticket.summary || '').trim();
+    const words = summary.split(/\s+/).filter(w => w.length > 3).slice(0, 3).join(' ');
+    if (!words) return null;
+    try {
+      const resp = await haloApiRequest(
+        `/api/tickets?search=${encodeURIComponent(words)}&count=10&open_only=false`
+      );
+      const items = extractEntityList(resp, 'tickets')
+        .filter(t => Number(t.id) !== Number(ticket.id));
+      if (!items.length) return null;
+
+      // Compute average resolution time for closed similar tickets.
+      const closed = items.filter(t => t.dateclosed && t.dateoccurred);
+      let avgNote = '';
+      if (closed.length) {
+        const ms = closed.reduce((sum, t) => {
+          return sum + (new Date(t.dateclosed).getTime() - new Date(t.dateoccurred).getTime());
+        }, 0) / closed.length;
+        const hours = ms / 3_600_000;
+        avgNote = hours < 24
+          ? `${hours.toFixed(1)}h avg`
+          : `${(hours / 24).toFixed(1)}d avg`;
+      }
+
+      const card = document.createElement('div');
+      card.className = 'hu-card hu-360-similar';
+      card.style.marginBottom = '10px';
+      card.innerHTML = `
+        <div class="hu-section-title-row">
+          <span class="hu-section-title" style="margin:0">Similar tickets</span>
+          ${avgNote ? `<span class="hu-360-similar-avg">${escapeHtml(closed.length)} resolved · ${escapeHtml(avgNote)}</span>` : ''}
+        </div>`;
+      items.slice(0, 4).forEach(t => {
+        const row = document.createElement('a');
+        row.className = 'hu-360-similar-row';
+        row.href = new URL(`/tickets?id=${t.id}`, window.location.origin).href;
+        const isOpen = !t.dateclosed;
+        row.innerHTML = `
+          <span class="hu-360-similar-dot" style="background:${isOpen ? '#3b82f6' : '#6b7280'}"></span>
+          <span class="hu-360-similar-title">${escapeHtml(String(t.summary || `#${t.id}`).slice(0, 80))}</span>
+          <span class="hu-360-similar-meta">${escapeHtml(isOpen ? 'Open' : timeAgo(t.dateclosed))}</span>`;
+        card.appendChild(row);
+      });
+      return card;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // First-letter initials, max 2. Avatars in the People section.
+  function avatarInitials(name) {
+    return String(name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2)
+      .map(s => s.charAt(0).toUpperCase()).join('') || '?';
+  }
+
+  // Halo stores agent/user images under several different field names
+  // depending on tenant version. Try them all; resolve relative paths
+  // against the current origin so they load over the same TLS session.
+  // Agent records carry `agentphotodata` (base64 data URI) plus
+  // `agentphotopath` (relative path like /AgentImage/<hash>.jpg).
+  function findHaloImageUrl(record) {
+    if (!record || typeof record !== 'object') return '';
+    const candidates = [
+      record.agentphotodata, record.agentphotopath,
+      record.userphotodata, record.userphotopath,
+      record.photodata, record.photopath, record.photourl,
+      record.image_url, record.imageurl, record.image_path, record.imagepath,
+      record.iconpath, record.icon_path, record.icon_url, record.iconurl,
+      record.agentimage, record.agentimagepath, record.agent_image,
+      record.picture_url, record.picture, record.profile_image,
+      record.images?.medium?.url, record.images?.small?.url, record.images?.original?.url
+    ];
+    for (const raw of candidates) {
+      if (!raw || typeof raw !== 'string') continue;
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      // Inline data URIs render as-is.
+      if (/^data:image\//i.test(trimmed)) return trimmed;
+      // Absolute http(s) URLs.
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      // Same-origin relative path.
+      if (trimmed.startsWith('/')) return new URL(trimmed, window.location.origin).href;
+      if (/^[\w./-]+$/.test(trimmed)) return new URL('/' + trimmed.replace(/^\.?\//, ''), window.location.origin).href;
+    }
+    return '';
+  }
+
+  // Fetch an agent record from /api/agent/{id}?includedetails=true so the
+  // image fields are populated (the cache_agent localStorage cache doesn't
+  // carry them on most tenants). Cached per session, per agent id.
+  async function fetchAgentDetail(agentId) {
+    const id = Number(agentId);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    if (!HU._agentDetailCache) HU._agentDetailCache = new Map();
+    if (HU._agentDetailCache.has(id)) return HU._agentDetailCache.get(id);
+    const promise = (async () => {
+      try {
+        return await haloApiRequest(`/api/agent/${id}?includedetails=true&isagentconfig=true`);
+      } catch (_) {
+        return null;
+      }
+    })();
+    HU._agentDetailCache.set(id, promise);
+    return promise;
+  }
+
+  async function fetchUserDetail(userId) {
+    const id = Number(userId);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    if (!HU._userDetailCache) HU._userDetailCache = new Map();
+    if (HU._userDetailCache.has(id)) return HU._userDetailCache.get(id);
+    const promise = (async () => {
+      try {
+        return await haloApiRequest(`/api/users/${id}?includedetails=true`);
+      } catch (_) {
+        return null;
+      }
+    })();
+    HU._userDetailCache.set(id, promise);
+    return promise;
+  }
+
+  // Swap initials → <img> on an avatar element. On image-load failure
+  // (404, etc.) fall back to the initials so the slot never goes blank.
+  function decorateAvatarWithImage(avatarEl, name, imageUrl) {
+    if (!avatarEl || !imageUrl) return;
+    avatarEl.textContent = '';
+    avatarEl.classList.add('hu-360-avatar--img');
+    const img = document.createElement('img');
+    img.alt = '';
+    img.loading = 'lazy';
+    img.referrerPolicy = 'no-referrer';
+    img.src = imageUrl;
+    img.addEventListener('error', () => {
+      avatarEl.classList.remove('hu-360-avatar--img');
+      img.remove();
+      avatarEl.textContent = avatarInitials(name);
+    });
+    avatarEl.appendChild(img);
+  }
+
+  // People section: two rows (Customer + Assignee) with avatar circles and
+  // parallel name/sub layout. Returns a complete .hu-360-sec.
+  function renderTicket360PeopleSection(ticket, summary, ticketId) {
+    const sec = document.createElement('section');
+    sec.className = 'hu-360-sec hu-360-people';
+    const header = document.createElement('div');
+    header.className = 'hu-360-sec-h';
+    header.textContent = 'People';
+    sec.appendChild(header);
+
+    // Customer row (end user → client → site).
+    const userName    = summary['End User'] || '';
+    const userId      = summary['User ID']  || 0;
+    const clientName  = summary['Client']   || '';
+    const clientId    = summary['Client ID']|| 0;
+    const siteName    = summary['Site']     || '';
+    const siteId      = summary['Site ID']  || 0;
+
+    const customer = document.createElement('div');
+    customer.className = 'hu-360-person hu-360-person--clickable';
+    customer.setAttribute('role', 'button');
+    customer.setAttribute('tabindex', '0');
+    customer.setAttribute('aria-label', 'Change customer');
+    const subParts = [];
+    if (clientId)   subParts.push(`<a href="${escapeHtml(routeDetail('customer', clientId))}">${escapeHtml(clientName || 'Client')}</a>`);
+    else if (clientName) subParts.push(escapeHtml(clientName));
+    if (siteId)     subParts.push(`<a href="${escapeHtml(routeDetail('site', siteId))}">${escapeHtml(siteName || 'Site')}</a>`);
+    else if (siteName)   subParts.push(escapeHtml(siteName));
+    const subHtml = subParts.length ? subParts.join('<span class="hu-360-cust-sep">·</span>') : '';
+
+    // VIP / important-contact marker — small star (VIP) or shield (important)
+    // next to the customer name. Tooltip explains which signal triggered it.
+    const isVip = ticket.is_vip || ticket.user?.is_vip || ticket.user?.client?.is_vip;
+    const isImportant = ticket.isimportantcontact || ticket.user?.isimportantcontact;
+    let marker = '';
+    if (isVip) {
+      marker = `<span class="hu-360-cust-marker hu-360-cust-marker-vip" title="VIP customer">
+        <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor" stroke="none"><path d="M8 1.5l1.85 4.4 4.65.4-3.5 3.1 1.1 4.6L8 11.6 3.9 14l1.1-4.6L1.5 6.3l4.65-.4z"/></svg>
+        <span>VIP</span></span>`;
+    } else if (isImportant) {
+      marker = `<span class="hu-360-cust-marker hu-360-cust-marker-key" title="Key contact at this client">
+        <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M8 2l5 2v4c0 3-2.4 5-5 6-2.6-1-5-3-5-6V4z"/></svg>
+        <span>Key contact</span></span>`;
+    }
+
+    customer.innerHTML = `
+      <div class="hu-360-avatar hu-360-avatar-customer">${escapeHtml(avatarInitials(userName))}</div>
+      <div class="hu-360-person-main">
+        <div class="hu-360-person-label">Customer</div>
+        <div class="hu-360-person-name">${userId
+          ? `<a href="${escapeHtml(routeDetail('user', userId))}">${escapeHtml(userName || 'User')}</a>`
+          : escapeHtml(userName || 'Unknown')}${marker}</div>
+        ${subHtml ? `<div class="hu-360-person-sub">${subHtml}</div>` : ''}
+      </div>
+      <svg class="hu-360-person-caret" viewBox="0 0 10 6" width="10" height="6" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>`;
+    // Clicks on the inner <a> (user/client/site profile links) should NOT
+    // trigger the picker — let the link navigate normally.
+    customer.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', e => e.stopPropagation());
+    });
+    const openCustomerPicker = () => openUserPicker(customer, ticketId, () => {
+      // Halo will resolve client/site from the new user; trigger a refresh
+      // so the whole drawer reflects the change.
+      scheduleTicket360Refresh(0);
+    });
+    customer.addEventListener('click', e => {
+      e.stopPropagation();
+      openCustomerPicker();
+    });
+    customer.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openCustomerPicker();
+      }
+    });
+    // Customer avatar — try the user object on the ticket first, fall
+    // back to /api/users/{id} for the image fields.
+    {
+      const av = customer.querySelector('.hu-360-avatar');
+      const inline = findHaloImageUrl(ticket.user);
+      if (inline) {
+        decorateAvatarWithImage(av, userName, inline);
+      } else if (userId) {
+        fetchUserDetail(userId).then(u => {
+          const url = findHaloImageUrl(u);
+          if (url) decorateAvatarWithImage(av, userName, url);
+        });
+      }
+    }
+    sec.appendChild(customer);
+
+    // Assignee row.
+    const agentName = getCachedName('cache_agent', ticket.agent_id) ||
+                      (ticket.agent_name ? String(ticket.agent_name) : '') ||
+                      (ticket.agent_id ? `Agent ${ticket.agent_id}` : 'Unassigned');
+    const team = (ticket.team && typeof ticket.team === 'object' ? ticket.team.name : ticket.team) || '';
+
+    const assignee = document.createElement('div');
+    assignee.className = 'hu-360-person hu-360-person--clickable';
+    assignee.setAttribute('role', 'button');
+    assignee.setAttribute('tabindex', '0');
+    assignee.setAttribute('aria-label', 'Change assignee');
+    assignee.innerHTML = `
+      <div class="hu-360-avatar hu-360-avatar-agent">${escapeHtml(avatarInitials(agentName))}</div>
+      <div class="hu-360-person-main">
+        <div class="hu-360-person-label">Assigned to</div>
+        <div class="hu-360-person-name hu-360-assignee-name">${escapeHtml(agentName)}</div>
+        ${team ? `<div class="hu-360-person-sub">${escapeHtml(team)}</div>` : ''}
+      </div>
+      <svg class="hu-360-person-caret" viewBox="0 0 10 6" width="10" height="6" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>`;
+    const openAssignPicker = () => {
+      openAgentPicker(assignee, ticketId, newAgent => {
+        // Update name + avatar in place.
+        const n = newAgent.name || `Agent ${newAgent.id}`;
+        assignee.querySelector('.hu-360-assignee-name').textContent = n;
+        const av = assignee.querySelector('.hu-360-avatar');
+        av.classList.remove('hu-360-avatar--img');
+        av.textContent = avatarInitials(n);
+        const newUrl = findHaloImageUrl(newAgent);
+        if (newUrl) decorateAvatarWithImage(av, n, newUrl);
+        ticket.agent_id = newAgent.id;
+      });
+    };
+    assignee.addEventListener('click', e => {
+      e.stopPropagation();
+      openAssignPicker();
+    });
+    assignee.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openAssignPicker();
+      }
+    });
+
+    // Additional agents (smaller, line below).
+    const extras = Array.isArray(ticket.additional_agents) ? ticket.additional_agents : [];
+    if (extras.length) {
+      const extraRow = document.createElement('div');
+      extraRow.className = 'hu-360-person-sub hu-360-additional-agents';
+      extraRow.style.marginLeft = '42px';
+      const names = extras.slice(0, 4).map(a => {
+        const id = typeof a === 'object' ? a.id : a;
+        return (typeof a === 'object' && (a.name || a.agent_name)) ||
+               getCachedName('cache_agent', id) || `Agent ${id}`;
+      });
+      const more = extras.length > 4 ? ` +${extras.length - 4} more` : '';
+      extraRow.textContent = `+ ${names.join(', ')}${more}`;
+      assignee.appendChild(extraRow);
+    }
+
+    // Assignee avatar — fetch the full agent record so image fields are
+    // populated (cache_agent doesn't carry them on most tenants).
+    if (ticket.agent_id) {
+      const av = assignee.querySelector('.hu-360-avatar');
+      fetchAgentDetail(ticket.agent_id).then(a => {
+        const url = findHaloImageUrl(a);
+        if (url) decorateAvatarWithImage(av, agentName, url);
+      });
+    }
+    sec.appendChild(assignee);
+    return sec;
+  }
+
+  // Position a popover near a trigger element, flipping/clamping when it
+  // would fall outside the viewport. Used for both the agent picker and
+  // the status/priority choice picker.
+  function positionPopover(pop, triggerEl, minWidth) {
+    const rect = triggerEl.getBoundingClientRect();
+    pop.style.position = 'fixed';
+    pop.style.left = rect.left + 'px';
+    pop.style.top  = rect.bottom + 4 + 'px';
+    pop.style.minWidth = Math.max(rect.width, minWidth || 200) + 'px';
+    pop.style.maxWidth = (window.innerWidth - 16) + 'px';
+    // Measure once attached, then adjust.
+    requestAnimationFrame(() => {
+      const popRect = pop.getBoundingClientRect();
+      const pad = 8;
+      let left = rect.left;
+      let top  = rect.bottom + 4;
+      // Right-edge overflow → align the popover's right edge with the trigger.
+      if (left + popRect.width > window.innerWidth - pad) {
+        left = Math.max(pad, Math.min(rect.right - popRect.width, window.innerWidth - popRect.width - pad));
+      }
+      if (left < pad) left = pad;
+      // Bottom overflow → flip above the trigger.
+      if (top + popRect.height > window.innerHeight - pad) {
+        const above = rect.top - popRect.height - 4;
+        top = above > pad ? above : pad;
+      }
+      pop.style.left = left + 'px';
+      pop.style.top  = top + 'px';
+    });
+  }
+
+  // Searchable agent picker popover. Anchored below the trigger (flips above
+  // if it'd fall off-screen). Live /api/agent search; results are grouped by
+  // team, so an agent in multiple teams appears under each.
+  function openAgentPicker(triggerEl, ticketId, onSelect) {
+    closeAgentPicker();
+    const pop = document.createElement('div');
+    pop.className = 'hu-360-agent-pop';
+    pop.innerHTML = `
+      <input type="text" class="hu-360-agent-search" placeholder="Search agents..." autocomplete="off">
+      <div class="hu-360-agent-list" role="listbox"></div>
+      <div class="hu-360-agent-status"></div>`;
+    document.body.appendChild(pop);
+    positionPopover(pop, triggerEl, 280);
+    HU._agentPicker = pop;
+
+    const input = pop.querySelector('.hu-360-agent-search');
+    const list  = pop.querySelector('.hu-360-agent-list');
+    const status = pop.querySelector('.hu-360-agent-status');
+    input.focus();
+
+    // Cache the full agent list on first run so subsequent keystrokes filter
+    // client-side. Filtering matches BOTH agent name and team-name — letting
+    // the user type "1st" to narrow to a whole team. The server-side
+    // ?search= param only matches names, missing this use case.
+    let allAgents = null;
+    let searchToken = 0;
+    const runSearch = async (term) => {
+      const myToken = ++searchToken;
+      status.textContent = 'Searching…';
+      list.innerHTML = '';
+      try {
+        if (!allAgents) {
+          // includedetails so the teams[] array comes back populated — without
+          // it Halo only returns the agent's primary team string.
+          const resp = await haloApiRequest(`/api/agent?count=500&includedetails=true`);
+          allAgents = extractEntityList(resp, 'agents');
+        }
+        if (myToken !== searchToken) return;
+
+        // Halo's agent record can express team membership via several keys
+        // depending on tenant version + whether includedetails was passed.
+        // Try them all and resolve any bare IDs via cache_team to get names.
+        const teamCache = readHaloCacheLookup('cache_team');
+        const teamLookup = (idOrObj) => {
+          if (idOrObj == null) return null;
+          if (typeof idOrObj === 'object') {
+            // Halo's agent.teams[] entries are membership records where
+            // `id` is the row id and `team_id` is the actual team. Always
+            // prefer team_id; otherwise we'd patch the ticket with the
+            // membership row id and Halo would silently reassign.
+            const rawId = idOrObj.team_id != null ? idOrObj.team_id : idOrObj.id;
+            const id = rawId != null ? Number(rawId) : null;
+            return { id: Number.isFinite(id) ? id : null,
+                     name: String(idOrObj.team_name || idOrObj.name || '').trim() };
+          }
+          const id = Number(idOrObj);
+          if (!Number.isFinite(id)) return null;
+          const row = teamCache?.get(id);
+          return { id, name: row ? String(row.name || row.team_name || '').trim() : '' };
+        };
+        const collectTeams = (a) => {
+          const result = [];
+          // Multi-team arrays (different field names on different Halo versions).
+          const sources = [a.teams, a.team_list, a.allowedteams, a.team_ids, a.extteamids];
+          for (const src of sources) {
+            if (!Array.isArray(src) || !src.length) continue;
+            src.forEach(item => {
+              const t = teamLookup(item);
+              if (t && (t.name || t.id != null)) result.push(t);
+            });
+          }
+          // Primary team (single string or object) — make sure it's in the list.
+          if (a.team) {
+            const primary = teamLookup(typeof a.team === 'object' ? a.team : { id: a.team_id, name: a.team });
+            if (primary && !result.some(r => r.id === primary.id || r.name === primary.name)) {
+              result.push(primary);
+            }
+          } else if (a.team_id != null) {
+            const primary = teamLookup(a.team_id);
+            if (primary && !result.some(r => r.id === primary.id)) result.push(primary);
+          }
+          // Sort entries WITH ids first so the dedup keeps the id-bearing
+          // copy. Otherwise an "id:null, name:X" sibling would land first
+          // and the user's pick would patch with no team_id — Halo would
+          // then fall back to the agent's *default* team, not the team
+          // they clicked.
+          result.sort((a, b) => (a.id == null ? 1 : 0) - (b.id == null ? 1 : 0));
+          // De-dupe by EITHER id OR normalized name.
+          const seenIds = new Set();
+          const seenNames = new Set();
+          return result.filter(t => {
+            if (!t.name && t.id == null) return false;
+            const normName = String(t.name || '').toLowerCase().trim();
+            if (t.id != null && seenIds.has(t.id)) return false;
+            if (normName && seenNames.has(normName)) return false;
+            if (t.id != null) seenIds.add(t.id);
+            if (normName) seenNames.add(normName);
+            return true;
+          });
+        };
+
+        // Filter the cached list by the search term (matches agent name OR
+        // team name) before expanding into per-team rows. The "Unassigned"
+        // virtual agent (id 0 / name "Unassigned") isn't useful here — it
+        // represents the no-assignment state, not an actual agent.
+        const lc = String(term || '').toLowerCase().trim();
+        const filtered = (!lc ? allAgents : allAgents.filter(a => {
+          const name = String(a.name || '').toLowerCase();
+          if (name.includes(lc)) return true;
+          const email = String(a.email || a.emailaddress || '').toLowerCase();
+          if (email.includes(lc)) return true;
+          return collectTeams(a).some(t => String(t.name || '').toLowerCase().includes(lc));
+        })).filter(a => {
+          if (Number(a.id) === 0) return false;
+          if (/^unassigned$/i.test(String(a.name || '').trim())) return false;
+          return true;
+        });
+
+        list.innerHTML = '';
+        if (!filtered.length) {
+          status.textContent = 'No agents found.';
+          return;
+        }
+        status.textContent = '';
+
+        // Expand each agent into one row per team membership, then group rows
+        // by team name. Agents in multiple teams appear under each team header.
+        const byTeam = new Map();
+        const unassigned = [];
+        filtered.forEach(a => {
+          const teams = collectTeams(a);
+          if (!teams.length) { unassigned.push({ agent: a, team: null }); return; }
+          // Dedupe by agent + visible team NAME. Two Halo team records
+          // with the same display name (e.g. legacy duplicates) collapse
+          // to a single row from the user's perspective.
+          const seenPair = new Set();
+          teams.forEach(t => {
+            const groupName = t.name || '(No team)';
+            const pairKey = `${a.id}|${groupName.toLowerCase().trim()}`;
+            if (seenPair.has(pairKey)) return;
+            seenPair.add(pairKey);
+            if (!byTeam.has(groupName)) byTeam.set(groupName, []);
+            byTeam.get(groupName).push({ agent: a, team: t });
+          });
+        });
+
+        // Render: sorted team headers, then agent rows under each.
+        const sortedTeams = Array.from(byTeam.keys()).sort((a, b) => a.localeCompare(b));
+        sortedTeams.forEach(teamName => {
+          const hdr = document.createElement('div');
+          hdr.className = 'hu-360-agent-team-hdr';
+          hdr.textContent = teamName;
+          list.appendChild(hdr);
+          byTeam.get(teamName)
+            .sort((a, b) => String(a.agent.name || '').localeCompare(String(b.agent.name || '')))
+            .forEach(({ agent, team }) => list.appendChild(buildAgentRow(agent, team)));
+        });
+        if (unassigned.length) {
+          const hdr = document.createElement('div');
+          hdr.className = 'hu-360-agent-team-hdr';
+          hdr.textContent = 'No team';
+          list.appendChild(hdr);
+          unassigned.forEach(({ agent, team }) => list.appendChild(buildAgentRow(agent, team)));
+        }
+
+        function buildAgentRow(a, team) {
+          const row = document.createElement('button');
+          row.type = 'button';
+          row.className = 'hu-360-agent-row';
+          row.innerHTML = `
+            <span class="hu-360-agent-name">${escapeHtml(a.name || `Agent ${a.id}`)}</span>
+            ${team && team.name ? `<span class="hu-360-agent-team">${escapeHtml(team.name)}</span>` : ''}`;
+          row.addEventListener('click', async () => {
+            row.disabled = true;
+            status.textContent = 'Assigning…';
+            try {
+              // Patch with agent_id + both team_id AND team name.
+              // Halo's update accepts either, but if team_id is missing it
+              // falls back to the agent's default team — which is wrong
+              // when the user explicitly picked an agent under a different
+              // team membership.
+              const patch = { agent_id: Number(a.id) };
+              if (team) {
+                if (team.id != null) patch.team_id = Number(team.id);
+                if (team.name) patch.team = String(team.name);
+              }
+              await updateTicketField(ticketId, patch);
+              onSelect?.(a, team);
+              closeAgentPicker();
+            } catch (e) {
+              status.textContent = 'Update failed — ' + (e?.message || 'unknown error');
+              row.disabled = false;
+            }
+          });
+          return row;
+        }
+      } catch (e) {
+        if (myToken !== searchToken) return;
+        status.textContent = 'Search failed.';
+      }
+    };
+
+    let debounce;
+    input.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => runSearch(input.value.trim()), 180);
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeAgentPicker(); }
+      if (e.key === 'ArrowDown') { list.querySelector('button')?.focus(); e.preventDefault(); }
+    });
+    // Initial unfiltered list of agents.
+    runSearch('');
+
+    // Click-outside to close.
+    setTimeout(() => {
+      const outsideHandler = (e) => {
+        if (!pop.contains(e.target) && e.target !== triggerEl) closeAgentPicker();
+      };
+      pop._outsideHandler = outsideHandler;
+      document.addEventListener('mousedown', outsideHandler, true);
+    }, 0);
+  }
+
+  function closeAgentPicker() {
+    const pop = HU._agentPicker;
+    if (!pop) return;
+    if (pop._outsideHandler) document.removeEventListener('mousedown', pop._outsideHandler, true);
+    pop.remove();
+    HU._agentPicker = null;
+  }
+
+  // Customer picker — server-side search of /api/users. Reuses the agent-pop
+  // chrome so styling stays consistent. Selected user patches the ticket with
+  // user_id (and client_id/site_id when known, so Halo doesn't fall back to
+  // the user's default client).
+  function openUserPicker(triggerEl, ticketId, onSelect) {
+    closeAgentPicker();
+    const pop = document.createElement('div');
+    pop.className = 'hu-360-agent-pop';
+    pop.innerHTML = `
+      <input type="text" class="hu-360-agent-search" placeholder="Search customers (name or email)..." autocomplete="off">
+      <div class="hu-360-agent-list" role="listbox"></div>
+      <div class="hu-360-agent-status">Type at least 2 characters to search.</div>`;
+    document.body.appendChild(pop);
+    positionPopover(pop, triggerEl, 320);
+    HU._agentPicker = pop;
+
+    const input = pop.querySelector('.hu-360-agent-search');
+    const list  = pop.querySelector('.hu-360-agent-list');
+    const status = pop.querySelector('.hu-360-agent-status');
+    input.focus();
+
+    let searchToken = 0;
+    const runSearch = async (term) => {
+      const myToken = ++searchToken;
+      const lc = String(term || '').trim();
+      list.innerHTML = '';
+      if (lc.length < 2) {
+        status.textContent = 'Type at least 2 characters to search.';
+        return;
+      }
+      status.textContent = 'Searching…';
+      try {
+        const resp = await haloApiRequest(
+          `/api/users?count=50&includeinactive=false&search=${encodeURIComponent(lc)}`
+        );
+        if (myToken !== searchToken) return;
+        const users = extractEntityList(resp, 'users');
+        if (!users.length) {
+          status.textContent = 'No customers found.';
+          return;
+        }
+        status.textContent = '';
+        users.forEach(u => list.appendChild(buildUserRow(u)));
+      } catch (e) {
+        if (myToken !== searchToken) return;
+        status.textContent = 'Search failed.';
+      }
+    };
+
+    function buildUserRow(u) {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'hu-360-agent-row';
+      const name = u.name || u.firstname || `User ${u.id}`;
+      const email = u.emailaddress || u.email || '';
+      const client = (u.client && typeof u.client === 'object' ? u.client.name : '') || u.client_name || '';
+      const subParts = [email, client].filter(Boolean);
+      row.innerHTML = `
+        <span class="hu-360-agent-name">${escapeHtml(name)}</span>
+        ${subParts.length ? `<span class="hu-360-agent-team">${escapeHtml(subParts.join(' · '))}</span>` : ''}`;
+      row.addEventListener('click', async () => {
+        row.disabled = true;
+        status.textContent = 'Updating…';
+        try {
+          const patch = { user_id: Number(u.id) };
+          if (u.client_id != null) patch.client_id = Number(u.client_id);
+          else if (u.client && typeof u.client === 'object' && u.client.id != null) {
+            patch.client_id = Number(u.client.id);
+          }
+          if (u.site_id != null) patch.site_id = Number(u.site_id);
+          else if (u.site && typeof u.site === 'object' && u.site.id != null) {
+            patch.site_id = Number(u.site.id);
+          }
+          await updateTicketField(ticketId, patch);
+          onSelect?.(u);
+          closeAgentPicker();
+        } catch (e) {
+          status.textContent = 'Update failed — ' + (e?.message || 'unknown error');
+          row.disabled = false;
+        }
+      });
+      return row;
+    }
+
+    let debounce;
+    input.addEventListener('input', () => {
+      clearTimeout(debounce);
+      debounce = setTimeout(() => runSearch(input.value), 220);
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeAgentPicker(); }
+      if (e.key === 'ArrowDown') { list.querySelector('button')?.focus(); e.preventDefault(); }
+    });
+
+    setTimeout(() => {
+      const outsideHandler = (e) => {
+        if (!pop.contains(e.target) && e.target !== triggerEl && !triggerEl.contains(e.target)) closeAgentPicker();
+      };
+      pop._outsideHandler = outsideHandler;
+      document.addEventListener('mousedown', outsideHandler, true);
+    }, 0);
+  }
+
+  async function updateTicketAssignedAgent(ticketId, agentId) {
+    // Halo's update pattern: POST /api/tickets with an array containing the
+    // updated ticket object (with id). Other fields aren't touched server-side.
+    return await haloApiRequest('/api/tickets', {
+      method: 'POST',
+      body: [{ id: Number(ticketId), agent_id: Number(agentId) }]
+    });
+  }
+
+  // Inline note editor — shown when the Note button is clicked. Saves via
+  // POST /api/actions and renders a confirmation row. Doesn't navigate away.
+  // Re-clicking the same Note button while the editor is open closes it.
+  function openInlineNoteEditor(anchorEl, ticketId, onSaved) {
+    if (HU._noteEditor && HU._noteEditor.dataset.kind === 'note') {
+      closeInlineNoteEditor();
+      return;
+    }
+    closeInlineNoteEditor();
+    const wrap = document.createElement('div');
+    wrap.className = 'hu-360-note-editor';
+    wrap.dataset.kind = 'note';
+    wrap.innerHTML = `
+      <textarea class="hu-360-note-text" rows="4" placeholder="Add a note for this ticket..."></textarea>
+      <div class="hu-360-note-actions">
+        <label class="hu-360-note-visibility">
+          <input type="checkbox" class="hu-360-note-hidden"> Hidden from end user
+        </label>
+        <div class="hu-360-note-btns">
+          <button type="button" class="hu-360-note-cancel">Cancel</button>
+          <button type="button" class="hu-360-note-save">Save note</button>
+        </div>
+      </div>
+      <div class="hu-360-note-status"></div>`;
+    anchorEl.insertAdjacentElement('afterend', wrap);
+    HU._noteEditor = wrap;
+
+    const ta = wrap.querySelector('.hu-360-note-text');
+    const status = wrap.querySelector('.hu-360-note-status');
+    ta.focus();
+
+    wrap.querySelector('.hu-360-note-cancel').addEventListener('click', closeInlineNoteEditor);
+    wrap.querySelector('.hu-360-note-save').addEventListener('click', async () => {
+      const note = ta.value.trim();
+      if (!note) { status.textContent = 'Note is empty.'; return; }
+      const hidden = wrap.querySelector('.hu-360-note-hidden').checked;
+      status.textContent = 'Saving…';
+      try {
+        await haloApiRequest('/api/actions', {
+          method: 'POST',
+          body: [{ ticket_id: Number(ticketId), note, hiddenfromuser: hidden, outcome: hidden ? 'Private Note' : 'Public Note' }]
+        });
+        closeInlineNoteEditor();
+        onSaved?.();
+      } catch (e) {
+        status.textContent = 'Save failed — ' + (e?.message || 'unknown error');
+      }
+    });
+  }
+  function closeInlineNoteEditor() {
+    if (HU._noteEditor) { HU._noteEditor.remove(); HU._noteEditor = null; }
+  }
+
+  // Inline time-entry editor — adds a time-logged action to the ticket.
+  // Mins input + optional note + Save/Cancel. POST /api/actions with the
+  // shape Halo expects for a billable time entry. Toggles closed on
+  // re-click of the Time button.
+  function openInlineTimeEditor(anchorEl, ticketId, onSaved) {
+    if (HU._noteEditor && HU._noteEditor.dataset.kind === 'time') {
+      closeInlineNoteEditor();
+      return;
+    }
+    closeInlineNoteEditor();  // reuses the note-editor slot/styling
+    const wrap = document.createElement('div');
+    wrap.className = 'hu-360-note-editor hu-360-time-editor';
+    wrap.dataset.kind = 'time';
+    wrap.innerHTML = `
+      <div class="hu-360-time-row">
+        <label class="hu-360-time-label">Minutes
+          <input type="number" min="1" step="1" class="hu-360-time-mins" placeholder="15">
+        </label>
+        <label class="hu-360-time-label hu-360-time-label-grow">Description
+          <input type="text" class="hu-360-time-desc" placeholder="What did you work on?">
+        </label>
+      </div>
+      <div class="hu-360-note-actions">
+        <label class="hu-360-note-visibility">
+          <input type="checkbox" class="hu-360-note-hidden"> Hidden from end user
+        </label>
+        <div class="hu-360-note-btns">
+          <button type="button" class="hu-360-note-cancel">Cancel</button>
+          <button type="button" class="hu-360-note-save">Log time</button>
+        </div>
+      </div>
+      <div class="hu-360-note-status"></div>`;
+    anchorEl.insertAdjacentElement('afterend', wrap);
+    HU._noteEditor = wrap;
+
+    const mins = wrap.querySelector('.hu-360-time-mins');
+    const desc = wrap.querySelector('.hu-360-time-desc');
+    const status = wrap.querySelector('.hu-360-note-status');
+    mins.focus();
+
+    wrap.querySelector('.hu-360-note-cancel').addEventListener('click', closeInlineNoteEditor);
+    wrap.querySelector('.hu-360-note-save').addEventListener('click', async () => {
+      const m = Number(mins.value);
+      if (!Number.isFinite(m) || m <= 0) { status.textContent = 'Enter minutes (positive integer).'; return; }
+      const hidden = wrap.querySelector('.hu-360-note-hidden').checked;
+      const note = String(desc.value || '').trim();
+      status.textContent = 'Saving…';
+      try {
+        await haloApiRequest('/api/actions', {
+          method: 'POST',
+          body: [{
+            ticket_id: Number(ticketId),
+            timetaken: m,
+            note: note,
+            hiddenfromuser: hidden,
+            outcome: 'Time Logged'
+          }]
+        });
+        closeInlineNoteEditor();
+        onSaved?.();
+      } catch (e) {
+        status.textContent = 'Save failed — ' + (e?.message || 'unknown error');
+      }
+    });
+  }
+
+  // Status / priority picker — small popover anchored below the clicked chip.
+  // Lists options from the localStorage cache; selecting one POSTs the
+  // updated ticket and re-renders the chip in place.
+  function openTicketChoicePicker(triggerEl, options, currentId, onSelect) {
+    closeTicketChoicePicker();
+    if (!options.length) return;
+    const pop = document.createElement('div');
+    pop.className = 'hu-360-choice-pop';
+    pop.innerHTML = `<div class="hu-360-choice-list" role="listbox"></div>
+                     <div class="hu-360-choice-status"></div>`;
+    document.body.appendChild(pop);
+    positionPopover(pop, triggerEl, 200);
+    HU._choicePicker = pop;
+
+    const list = pop.querySelector('.hu-360-choice-list');
+    const status = pop.querySelector('.hu-360-choice-status');
+    options.forEach(opt => {
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = 'hu-360-choice-row' + (Number(opt.id) === Number(currentId) ? ' is-current' : '');
+      const colour = opt.colour || opt.color || '';
+      const safeColour = /^(#[0-9a-f]{3,8}|rgb)/i.test(String(colour).trim()) ? colour : '';
+      row.innerHTML = `
+        <span class="hu-360-choice-dot" ${safeColour ? `style="background:${safeColour}"` : ''}></span>
+        <span class="hu-360-choice-name">${escapeHtml(opt.name || String(opt.id))}</span>`;
+      row.addEventListener('click', async () => {
+        row.disabled = true;
+        status.textContent = 'Saving…';
+        try {
+          await onSelect(opt);
+          closeTicketChoicePicker();
+        } catch (e) {
+          status.textContent = 'Update failed — ' + (e?.message || 'unknown');
+          row.disabled = false;
+        }
+      });
+      list.appendChild(row);
+    });
+
+    setTimeout(() => {
+      const outside = e => { if (!pop.contains(e.target) && e.target !== triggerEl) closeTicketChoicePicker(); };
+      pop._outsideHandler = outside;
+      document.addEventListener('mousedown', outside, true);
+    }, 0);
+  }
+  function closeTicketChoicePicker() {
+    const pop = HU._choicePicker;
+    if (!pop) return;
+    if (pop._outsideHandler) document.removeEventListener('mousedown', pop._outsideHandler, true);
+    pop.remove();
+    HU._choicePicker = null;
+  }
+
+  async function updateTicketField(ticketId, patch) {
+    setTicket360Loading(true);
+    try {
+      const result = await haloApiRequest('/api/tickets', {
+        method: 'POST',
+        body: [{ id: Number(ticketId), ...patch }]
+      });
+      scheduleTicket360Refresh(500);
+      return result;
+    } finally {
+      // Loading is cleared by the refresh's own setTicket360Loading(false);
+      // we don't clear it here to avoid a flicker between save-done and
+      // refresh-start. The refresh re-asserts loading state anyway.
+      setTimeout(() => {
+        if (!HU._ticket360RefreshTimer) setTicket360Loading(false);
+      }, 800);
+    }
+  }
+
+  // Small spinner in the drawer header. Refcounted via HU._ticket360LoadingDepth
+  // so concurrent writes (e.g. flag toggle while a save is still pending)
+  // don't clear each other prematurely.
+  function setTicket360Loading(on) {
+    const drawer = document.getElementById('hu-ticket360-drawer');
+    if (!drawer) return;
+    if (typeof HU._ticket360LoadingDepth !== 'number') HU._ticket360LoadingDepth = 0;
+    HU._ticket360LoadingDepth = Math.max(0, HU._ticket360LoadingDepth + (on ? 1 : -1));
+    const visible = HU._ticket360LoadingDepth > 0;
+    let indicator = drawer.querySelector('.hu-360-loading-indicator');
+    if (visible) {
+      if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.className = 'hu-360-loading-indicator';
+        indicator.innerHTML = '<span class="hu-360-spinner" aria-label="Loading"></span>';
+        const header = drawer.querySelector('.hu-drawer-header');
+        const closeBtn = header?.querySelector('.hu-icon-btn');
+        if (closeBtn) header.insertBefore(indicator, closeBtn);
+        else header?.appendChild(indicator);
+      }
+    } else if (indicator) {
+      indicator.remove();
+    }
+  }
+
+  // Refresh helpers — re-render the Ticket 360 panel without rebuilding the
+  // whole drawer when nothing changed. Driven by three triggers:
+  //   1. After our own writes (status/priority/agent/flag/note).
+  //   2. Tab visibility change (user returns to the tab).
+  //   3. 30s background poll while the panel is open.
+  // The poll compares the `last_update` timestamp on the ticket and skips the
+  // re-render when nothing changed server-side.
+  function scheduleTicket360Refresh(delayMs) {
+    if (HU._ticket360RefreshTimer) clearTimeout(HU._ticket360RefreshTimer);
+    HU._ticket360RefreshTimer = setTimeout(() => {
+      HU._ticket360RefreshTimer = null;
+      if (!document.getElementById('hu-ticket360-drawer')) return;
+      // Re-run openTicket360Panel — it re-fetches and re-renders in place.
+      openTicket360Panel().catch(() => {});
+    }, delayMs || 600);
+  }
+
+  function startTicket360LiveUpdates(ticketId, lastUpdateIso) {
+    stopTicket360LiveUpdates();
+    HU._ticket360LastSeen = lastUpdateIso || '';
+    HU._ticket360TicketId = ticketId;
+
+    // 30s polling — only fires while the drawer is in the DOM.
+    HU._ticket360PollTimer = setInterval(async () => {
+      if (!document.getElementById('hu-ticket360-drawer')) {
+        stopTicket360LiveUpdates();
+        return;
+      }
+      // Skip the poll when the tab is hidden — visibilitychange below picks
+      // it up when the user comes back.
+      if (document.hidden) return;
+      try {
+        const fresh = await haloApiRequest(`/api/tickets/${ticketId}`);
+        const lu = fresh && (fresh.last_update || fresh.lastactiondate || '');
+        if (lu && lu !== HU._ticket360LastSeen) {
+          HU._ticket360LastSeen = lu;
+          openTicket360Panel().catch(() => {});
+        }
+      } catch (_) {}
+    }, 30000);
+
+    // Refresh on tab-focus regain.
+    HU._ticket360VisHandler = () => {
+      if (document.hidden) return;
+      if (!document.getElementById('hu-ticket360-drawer')) return;
+      scheduleTicket360Refresh(0);
+    };
+    document.addEventListener('visibilitychange', HU._ticket360VisHandler);
+  }
+
+  function stopTicket360LiveUpdates() {
+    if (HU._ticket360PollTimer) { clearInterval(HU._ticket360PollTimer); HU._ticket360PollTimer = null; }
+    if (HU._ticket360VisHandler) {
+      document.removeEventListener('visibilitychange', HU._ticket360VisHandler);
+      HU._ticket360VisHandler = null;
+    }
+    if (HU._ticket360RefreshTimer) { clearTimeout(HU._ticket360RefreshTimer); HU._ticket360RefreshTimer = null; }
+    HU._ticket360TicketId = null;
+    HU._ticket360LastSeen = '';
+  }
+
+  // Fetch the statuses allowed for a specific ticket type. Halo's /api/Status
+  // endpoint accepts `tickettype_id` to return only the statuses configured
+  // for that ticket type (or all statuses when the type's allowall_status
+  // flag is set). Cached per ticket-type for the session — status definitions
+  // rarely change.
+  // Fetch /api/Status?type=ticket once per session. Halo's status records
+  // carry a `used_in_ticket_types` array — the authoritative list of which
+  // ticket types each status is available for. Halo's own ?tickettype_id=
+  // filter is ignored on most tenants, so we filter client-side instead.
+  async function fetchAllTicketStatuses() {
+    if (HU._allStatusesPromise) return HU._allStatusesPromise;
+    HU._allStatusesPromise = (async () => {
+      try {
+        const resp = await haloApiRequest(`/api/Status?type=ticket`);
+        const records = extractEntityList(resp, 'statuses');
+        return Array.isArray(records) ? records.filter(s => s && s.name) : [];
+      } catch (_) {
+        return [];
+      }
+    })();
+    return HU._allStatusesPromise;
+  }
+
+  // Normalise the `used_in_ticket_types` field (numbers OR {id} objects)
+  // to a Set of numeric type IDs for fast membership checks.
+  function statusTypeIds(status) {
+    const raw = status?.used_in_ticket_types;
+    if (!Array.isArray(raw)) return null;
+    const ids = new Set();
+    raw.forEach(item => {
+      const id = typeof item === 'object' && item ? Number(item.id ?? item.tickettype_id) : Number(item);
+      if (Number.isFinite(id)) ids.add(id);
+    });
+    return ids;
+  }
+
+  // Mirror Halo's own status query — the OOTB ticket form calls
+  //   /api/Status?type=ticket&tickettype_id=X&workflow_id=Y&workflow_step=Z
+  // and the server filters down to just the statuses reachable from that
+  // workflow step. This is far more accurate than client-side filtering.
+  // If `workflow_step` is unavailable we resolve it from the workflow
+  // stages (matching by stage name).
+  async function fetchStatusesForTicketType(ticket) {
+    // Back-compat: callers may pass just a tickettype_id (number).
+    const typeId = typeof ticket === 'object' && ticket
+      ? Number(ticket.tickettype_id)
+      : Number(ticket);
+    if (!Number.isFinite(typeId) || typeId <= 0) return null;
+
+    const workflowId = typeof ticket === 'object' && ticket ? Number(ticket.workflow_id) || 0 : 0;
+    const stepName = typeof ticket === 'object' && ticket ? String(ticket.workflow_step || '').trim() : '';
+    let stepSeq = 0;
+    if (workflowId && stepName) {
+      try {
+        const stages = await fetchWorkflowStages(workflowId);
+        const match = stages.find(s => String(s.name || '').toLowerCase() === stepName.toLowerCase());
+        if (match && Number.isFinite(match.seq) && match.seq > 0) stepSeq = match.seq;
+      } catch (_) {}
+    }
+
+    const cacheKey = `${typeId}|${workflowId}|${stepSeq}`;
+    if (!HU.statusByTypeCache) HU.statusByTypeCache = {};
+    if (HU.statusByTypeCache[cacheKey]) return HU.statusByTypeCache[cacheKey];
+
+    // Try the rich, server-side filtered call first.
+    const params = new URLSearchParams({
+      type: 'ticket',
+      excludepending: 'false',
+      excludeclosed: 'false',
+      tickettype_id: String(typeId)
+    });
+    if (workflowId) params.set('workflow_id', String(workflowId));
+    if (stepSeq) params.set('workflow_step', String(stepSeq));
+
+    try {
+      const resp = await haloApiRequest(`/api/Status?${params.toString()}`);
+      const records = extractEntityList(resp, 'statuses');
+      if (Array.isArray(records) && records.length) {
+        const sorted = records
+          .filter(s => s && s.name)
+          .sort((a, b) => (a.sequence || 0) - (b.sequence || 0) ||
+                          String(a.name).localeCompare(String(b.name)));
+        HU.statusByTypeCache[cacheKey] = sorted;
+        return sorted;
+      }
+    } catch (_) {}
+
+    // Fallback: client-side filter on used_in_ticket_types from the full
+    // status list (handles tenants where the rich endpoint ignores params).
+    const all = await fetchAllTicketStatuses();
+    const filtered = all.filter(s => {
+      const ids = statusTypeIds(s);
+      if (!ids || ids.size === 0) return false;
+      return ids.has(typeId);
+    }).sort((a, b) => (a.sequence || 0) - (b.sequence || 0) ||
+                       String(a.name).localeCompare(String(b.name)));
+    HU.statusByTypeCache[cacheKey] = filtered.length ? filtered : null;
+    return filtered.length ? filtered : null;
+  }
+
   async function openTicket360Panel() {
     if (HU.settings.ticket360Enabled === false) return false;
     const ticketId = getCurrentTicketId();
@@ -3521,206 +7007,564 @@ ${orderBy}
     }
 
     injectStyles();
-    closeDrawer('hu-ticket360-drawer');
-    closeDrawer('hu-timeline-drawer');
-    hideHaloMenu();
-    if (HU.settings.hideHaloSidebar) hideHaloSidebars();
 
-    HU.ticket360TicketId = ticketId;
+    // In-place refresh path: if a Ticket 360 drawer is already open for the
+    // SAME ticket, reuse it. Skip closeDrawer + createDrawer so the slide-
+    // out / slide-in animation doesn't fire on every refresh. The body is
+    // re-rendered below after the fetch completes.
+    const existing = document.getElementById('hu-ticket360-drawer');
+    const isInPlace = !!existing && Number(HU.ticket360TicketId) === Number(ticketId);
 
-    const PUSH_WIDTH = 520;
-    const drawer = createDrawer('hu-ticket360-drawer', 'Ticket 360', removePushMode);
-    if (HU.settings.drawer360Push) {
-      Object.assign(drawer.style, {
-        right: '0', top: '0', bottom: '0',
-        borderRadius: '8px 0 0 8px',
-        width: PUSH_WIDTH + 'px'
-      });
-      applyPushMode(PUSH_WIDTH);
+    let drawer;
+    let body;
+    let preservedScrollTop = 0;
+    if (isInPlace) {
+      drawer = existing;
+      body = drawer.querySelector('.hu-drawer-body');
+      // Save scroll position so the user doesn't jump to top on refresh.
+      preservedScrollTop = body ? body.scrollTop : 0;
+      // Close transient popovers/editors that could overlap stale targets.
+      closeAgentPicker();
+      closeTicketChoicePicker();
+      closeInlineNoteEditor();
+    } else {
+      closeDrawer('hu-ticket360-drawer');
+      closeDrawer('hu-timeline-drawer');
+      hideHaloMenu();
+      if (HU.settings.hideHaloSidebar) hideHaloSidebars();
+
+      HU.ticket360TicketId = ticketId;
+
+      const PUSH_WIDTH = 520;
+      drawer = createDrawer('hu-ticket360-drawer', 'Ticket 360', removePushMode);
+      if (HU.settings.drawer360Push) {
+        Object.assign(drawer.style, {
+          right: '0', top: '0', bottom: '0',
+          borderRadius: '8px 0 0 8px',
+          width: PUSH_WIDTH + 'px'
+        });
+        applyPushMode(PUSH_WIDTH);
+      }
+      body = drawer.querySelector('.hu-drawer-body');
+      body.style.padding = '0';
+      body.innerHTML = `<div style="padding:14px"><div class="hu-row"><span class="hu-row-title">Loading dashboard...</span></div></div>`;
+      openDrawer(drawer);
+      document.getElementById('hu-360-inject-btn')?.classList.add('is-active');
     }
-    const body = drawer.querySelector('.hu-drawer-body');
-    body.style.padding = '0';
-    body.innerHTML = `<div style="padding:14px"><div class="hu-row"><span class="hu-row-title">Loading dashboard...</span></div></div>`;
-    openDrawer(drawer);
-    document.getElementById('hu-360-inject-btn')?.classList.add('is-active');
 
+    // Show the header spinner while the (re-)fetch is in flight.
+    setTicket360Loading(true);
+
+    let summary, actions, trace = [];
     try {
-      const [summaryPayload, actionsPayload, tracePayload] = await Promise.all([
-        runHaloReport(buildTicket360Query(ticketId), 'HaloPlus Ticket 360'),
-        runHaloReport(buildTicketActionTimelineQuery(ticketId), 'HaloPlus Ticket Timeline'),
-        runHaloReport(buildTicketCommercialTraceQuery(ticketId), 'HaloPlus Ticket Commercial Trace')
+      // Fetch the ticket + its actions via entity APIs. These respect the
+      // agent's ticket-view permission (works for non-admins who can see the
+      // ticket in Halo's own UI). /api/Report-based queries used to fail with
+      // 403 for non-admin agents even when they could see the ticket itself.
+      const [ticket, actionsResp] = await Promise.all([
+        haloApiRequest(`/api/tickets/${ticketId}`),
+        haloApiRequest(`/api/actions?ticket_id=${ticketId}&count=25`).catch(() => ({ actions: [] }))
       ]);
 
-      const summaryError = getReportLoadError(summaryPayload);
-      if (summaryError) {
-        closeDrawer('hu-ticket360-drawer');
-        return;
+      const actionRows = extractEntityList(actionsResp, 'actions');
+
+      // Kick off live-update listeners (poll + visibilitychange) so the panel
+      // reflects changes made from Halo's own UI or another tab.
+      startTicket360LiveUpdates(ticketId, ticket.last_update || ticket.lastactiondate || '');
+
+      // Flatten the entity-API ticket into the same shape the renderer expects.
+      // Names that aren't directly returned by /api/tickets are resolved from
+      // Halo's localStorage caches (cache_status, cache_tickettype, cache_agent)
+      // which Halo populates on every page load.
+      // Halo's API sometimes returns related-entity fields as nested objects
+      // ({id, name, ...}) instead of plain strings — unwrap to the name.
+      const nameish = v => {
+        if (v == null) return '';
+        if (typeof v === 'string') return v;
+        if (typeof v === 'number') return String(v);
+        if (typeof v === 'object') return v.name || v.shortname || v.text || v.value || '';
+        return String(v);
+      };
+      // Halo uses "1900-01-01" (and similar pre-2000 dates) as the
+      // "no value" sentinel. Treat those as empty so the renderer falls
+      // back to "--" rather than "Jan 01, 1900".
+      const realDate = v => {
+        if (!v) return '';
+        const d = new Date(v);
+        if (isNaN(d.getTime())) return '';
+        if (d.getFullYear() < 2000) return '';
+        return v;
+      };
+      summary = {
+        'Ticket ID':             ticket.id,
+        'Summary':               nameish(ticket.summary),
+        'Status':                nameish(ticket.status_name) || getCachedName('cache_status', ticket.status_id) || (ticket.status_id ? '#' + ticket.status_id : ''),
+        'Priority':              nameish(ticket.priority) || nameish(ticket.priority_name) || (ticket.priority_id ? '#' + ticket.priority_id : ''),
+        'Ticket Type':           nameish(ticket.tickettype) || nameish(ticket.tickettype_name) || getCachedName('cache_tickettype', ticket.tickettype_id) || '',
+        'SLA':                   nameish(ticket.sla_name),
+        'SLA State':             nameish(ticket.sla_state) || nameish(ticket.slaState),
+        'Opened':                realDate(ticket.dateoccurred) || realDate(ticket.datecreated) || '',
+        'Due By':                realDate(ticket.fixbydate) || realDate(ticket.deadlinedate) || '',
+        'Closed':                (() => {
+          const opened = realDate(ticket.dateoccurred) || realDate(ticket.datecreated);
+          const closed = realDate(ticket.dateclosed) || realDate(ticket.datecleared) || realDate(ticket.agreedcleared) || '';
+          // Sandbox fixtures sometimes have a close date before the open date.
+          // Treat that as "not closed" so SLA arc + time card agree.
+          if (closed && opened && new Date(closed).getTime() < new Date(opened).getTime()) return '';
+          return closed;
+        })(),
+        'User ID':               ticket.user_id || 0,
+        'End User':              nameish(ticket.user_name) || nameish(ticket.user),
+        'User Email':            '',  // not in /api/tickets — could /api/users/{id} on demand
+        'User Mobile':           '',
+        'Client ID':             ticket.client_id || 0,
+        'Client':                nameish(ticket.client_name) || nameish(ticket.client),
+        'Site ID':               ticket.site_id || 0,
+        'Site':                  nameish(ticket.site_name) || nameish(ticket.site),
+        'Assigned Agent ID':     ticket.agent_id || 0,
+        'Assigned Agent':        getCachedName('cache_agent', ticket.agent_id) || nameish(ticket.agent_name) || '',
+        'Assigned Agent Email':  '',  // not in /api/tickets — could /api/agent/{id} on demand
+        'Closed By ID':          0,
+        'Closed By':             '',
+        'Asset ID':              (ticket.assets && ticket.assets[0] && ticket.assets[0].id) || 0,
+        'Asset Tag':             nameish(ticket.assets && ticket.assets[0] && (ticket.assets[0].inventory_number || ticket.assets[0].key_field || ticket.assets[0].name))
+      };
+
+      // Flatten each action row into the SQL alias shape the renderer uses.
+      actions = actionRows.map(a => ({
+        'Action ID':    a.id,
+        'Outcome':      nameish(a.outcome) || nameish(a.actioncode_name) || nameish(a.who_action_text),
+        'Note':         nameish(a.note),
+        'Who':          nameish(a.who) || nameish(a.agent_name),
+        'When':         realDate(a.datetime) || realDate(a.actiondatecreated) || realDate(a.actiondate) || realDate(a.who_changed),
+        'Time Taken':   a.timetaken || 0,
+        'Date Emailed': realDate(a.dateemailed),
+        'Hidden':       a.hiddenfromuser ? 1 : 0
+      }));
+
+      // Commercial trace: still SQL-based (no clean entity-API equivalent that
+      // unions across quotes/orders/POs/invoices in one call). Skip silently
+      // when the agent lacks Report Read — the rest of Ticket 360 still works.
+      try {
+        const tracePayload = await runHaloReport(buildTicketCommercialTraceQuery(ticketId), 'HaloPlus Ticket Commercial Trace');
+        trace = getReportLoadError(tracePayload) ? [] : sortTraceRows(extractRows(tracePayload));
+      } catch (e) {
+        trace = [];
       }
 
-      const summary = extractRows(summaryPayload)[0];
-      const actions = extractRows(actionsPayload);
-      const trace   = getReportLoadError(tracePayload) ? [] : sortTraceRows(extractRows(tracePayload));
-
-      if (!summary) {
-        closeDrawer('hu-ticket360-drawer');
-        return;
+      if (!summary || !summary['Ticket ID']) {
+        body.innerHTML = '<div class="hu-row"><span class="hu-row-title">Ticket not found</span><span class="hu-row-sub">The ticket query returned no data. The ticket may have been deleted or you may not have access to it.</span></div>';
+        return true;
       }
 
       body.innerHTML = '';
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'padding:10px;display:flex;flex-direction:column;gap:0';
+      // Top-level container is the .hu-drawer-body itself — sections sit
+      // directly inside, separated by hairline dividers (no outer padding).
+      const wrap = body;
+      drawer.style.borderLeft = '';  // ::before stripe replaces the v2 left border
 
-      const hero = document.createElement('div');
-      hero.className = 'hu-card hu-ticket-hero';
-      hero.style.marginBottom = '10px';
+      // Banner sits at the very top, in normal flow (under the header, above hero).
+      const banner = renderTicket360Banners(ticket);
+      if (banner) wrap.appendChild(banner);
+
+      // Priority chip modifier class — picks low / medium / high / critical
+      // from the ticket's priority name. Defaults to medium when unknown.
+      const priorityName = nameish(ticket.priority) || nameish(ticket.priority_name) || '';
+      const priorityCls = /critical|p1/i.test(priorityName) ? 'hu-chip-priority-critical'
+                        : /urgent|high|p2/i.test(priorityName) ? 'hu-chip-priority-high'
+                        : /low|p4/i.test(priorityName) ? 'hu-chip-priority-low'
+                        : 'hu-chip-priority-medium';
+
+      // Format like the search results: [SR-0002177] using the ticket type's
+      // email tag override. Falls back to the generated 2-letter prefix from
+      // ticketTypeSearchMap, then to a plain "#0002177".
+      const tt = ticket.tickettype && typeof ticket.tickettype === 'object' ? ticket.tickettype : null;
+      const startTag = (tt && tt.email_start_tag_override) || '';
+      const endTag = (tt && tt.email_end_tag_override) || ']';
+      const paddedId = String(summary['Ticket ID'] || '').padStart(7, '0');
+      let ticketIdLabel = '';
+      if (summary['Ticket ID']) {
+        if (startTag) {
+          ticketIdLabel = `${startTag}${paddedId}${endTag}`;
+        } else {
+          // Fall back to the slug-based prefix HaloPlus keeps for each type.
+          const def = tt && tt.name ? HU.ticketTypeSearchMap[slugify(tt.name)] : null;
+          const prefix = def && def.ticketPrefix ? def.ticketPrefix : '';
+          ticketIdLabel = prefix ? `[${prefix}-${paddedId}]` : `#${paddedId}`;
+        }
+      }
+
+      // Look up the current status's colour from cache_status so the pill
+      // matches Halo's own palette. Sanitised to hex / rgb to prevent style
+      // injection. Returns '' if no usable colour was found.
+      const statusColour = (() => {
+        const cache = readHaloCacheLookup('cache_status');
+        const row = cache?.get(Number(ticket.status_id));
+        const raw = String(row?.colour || row?.color || row?.chip_color || row?.status_colour || '').trim();
+        return /^(#[0-9a-f]{3,8}|rgb(a)?\([^)]+\))$/i.test(raw) ? raw : '';
+      })();
+      const statusStyle = statusColour
+        ? ` style="background:${statusColour};border-color:${statusColour};color:#fff;text-shadow:0 1px 1px rgba(0,0,0,0.25)"`
+        : '';
+      const statusModClass = statusColour ? ' hu-chip--colored' : '';
+
+      // Hero section.
+      const hero = document.createElement('section');
+      hero.className = 'hu-360-sec hu-360-hero';
       hero.innerHTML = `
-        <div class="hu-ticket-hero-main" style="flex:1;min-width:0">
-          <div class="hu-ticket-id">Ticket #${escapeHtml(String(summary['Ticket ID']))}</div>
-          <div class="hu-ticket-summary">${escapeHtml(summary['Summary'] || 'No summary')}</div>
-          <div class="hu-chip-row">
-            ${coloredChip(summary['Status'],      'status')}
-            ${coloredChip(summary['Priority'],    'priority')}
-            ${coloredChip(summary['Ticket Type'], 'type')}
+        <h2 class="hu-ticket-summary hu-ticket-summary--editable" title="Click to edit summary" role="textbox" aria-label="Ticket summary">${escapeHtml(summary['Summary'] || 'No summary')}</h2>
+        <div class="hu-360-meta-row">
+          <div class="hu-360-meta-col">
+            <div class="hu-chip-row">
+              ${summary['Status'] ? `<button type="button" class="hu-chip hu-chip-status${statusModClass} hu-chip-clickable" data-action="status"${statusStyle} title="Click to change status">${escapeHtml(summary['Status'])}</button>` : ''}
+              ${priorityName ? `<button type="button" class="hu-chip ${priorityCls} hu-chip-clickable" data-action="priority" title="Click to change priority">${escapeHtml(priorityName)} priority</button>` : ''}
+              ${summary['Ticket Type'] ? `<span class="hu-chip hu-chip-category">${escapeHtml(summary['Ticket Type'])}</span>` : ''}
+            </div>
+            ${renderTicket360AgingBadges(ticket, actions)}
           </div>
+          ${renderTicket360SlaDonut(ticket)}
         </div>
-        <div style="flex-shrink:0">
-          ${slaArcSvg(summary['Opened'], summary['Due By'], summary['Closed'], summary['SLA State'])}
-        </div>`;
+        ${renderTicket360QuickActionsHtml(ticket.id, !!ticket.flagged)}`;
       wrap.appendChild(hero);
 
-      const kpiGrid = document.createElement('div');
-      kpiGrid.className = 'hu-360-kpi-grid';
-      const slaState = summary['SLA State'];
-      const slaDot   = { I: '#10b981', O: '#ef4444', E: '#94a3b8' }[slaState] || '#94a3b8';
-      [
-        { label: 'Status',   value: summary['Status']      || '--', dot: summary['Closed'] ? '#6b7280' : '#3b82f6' },
-        { label: 'Priority', value: summary['Priority']    || '--', dot: priorityDot(summary['Priority']) },
-        { label: 'Type',     value: summary['Ticket Type'] || '--', dot: '#8b5cf6' },
-        { label: 'SLA',      value: formatSlaState(slaState),       dot: slaDot }
-      ].forEach(({ label, value, dot }) => {
-        const card = document.createElement('div');
-        card.className = 'hu-360-kpi';
-        card.innerHTML = `<div class="hu-360-kpi-label">${escapeHtml(label)}</div>
-          <div class="hu-360-kpi-value"><span class="hu-360-kpi-dot" style="background:${dot}"></span>${escapeHtml(value)}</div>`;
-        kpiGrid.appendChild(card);
+      // Replace the drawer header's "Ticket 360" with the ticket number
+      // (e.g. [IN-0003112]) — saves space and gives the agent the most
+      // useful identifier in the header.
+      const headerTitleEl = drawer.querySelector('.hu-drawer-title');
+      if (headerTitleEl) headerTitleEl.textContent = ticketIdLabel || 'Ticket 360';
+
+
+      // Inline-edit the ticket summary. Click → contenteditable; Enter or
+      // blur saves, Escape cancels. Multiline collapses on save (Halo's
+      // `summary` is a single-line field).
+      const summaryEl = hero.querySelector('.hu-ticket-summary--editable');
+      if (summaryEl) {
+        let originalText = String(summary['Summary'] || '');
+        let editing = false;
+        let cancelled = false;
+
+        const startEdit = () => {
+          if (editing) return;
+          editing = true;
+          cancelled = false;
+          originalText = summaryEl.textContent.trim();
+          summaryEl.classList.add('is-editing');
+          summaryEl.contentEditable = 'true';
+          summaryEl.focus();
+          // Select all so the user can type to replace, or position caret.
+          const range = document.createRange();
+          range.selectNodeContents(summaryEl);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        };
+
+        const endEdit = async () => {
+          if (!editing) return;
+          editing = false;
+          summaryEl.contentEditable = 'false';
+          summaryEl.classList.remove('is-editing');
+          const newText = summaryEl.textContent.replace(/\s+/g, ' ').trim();
+
+          if (cancelled || newText === originalText) {
+            summaryEl.textContent = originalText || 'No summary';
+            return;
+          }
+          if (!newText) {
+            // Empty isn't a valid summary — revert.
+            summaryEl.textContent = originalText || 'No summary';
+            return;
+          }
+          summaryEl.textContent = newText;
+          summaryEl.classList.add('hu-ticket-summary--saving');
+          try {
+            await updateTicketField(ticket.id, { summary: newText });
+            originalText = newText;
+            ticket.summary = newText;
+          } catch (e) {
+            // Roll back on failure.
+            summaryEl.textContent = originalText || 'No summary';
+          } finally {
+            summaryEl.classList.remove('hu-ticket-summary--saving');
+          }
+        };
+
+        summaryEl.addEventListener('click', () => { if (!editing) startEdit(); });
+        summaryEl.addEventListener('focus', () => { if (!editing) startEdit(); });
+        summaryEl.addEventListener('blur', () => endEdit());
+        summaryEl.addEventListener('keydown', e => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            summaryEl.blur();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelled = true;
+            summaryEl.blur();
+          }
+        });
+        // Strip rich text when pasting — plain text only.
+        summaryEl.addEventListener('paste', e => {
+          e.preventDefault();
+          const text = (e.clipboardData || window.clipboardData).getData('text');
+          document.execCommand('insertText', false, text.replace(/\s+/g, ' '));
+        });
+      }
+
+      // Wire clickable status / priority chips → choice picker.
+      const statusChip = hero.querySelector('[data-action="status"]');
+      if (statusChip) statusChip.addEventListener('click', async () => {
+        // Status options come from Halo's own filtered endpoint:
+        //   GET /api/Status?type=ticket&tickettype_id=X&workflow_id=Y&workflow_step=Z
+        // which is what the OOTB ticket form uses. The server returns just
+        // the statuses reachable from this ticket's current workflow step.
+        // If that fails or returns nothing, fall back to the full
+        // cache_status list so the user is never left with an empty picker.
+        // Halo's own filter (server-side) — passes tickettype_id + workflow
+        // + workflow_step so the response is already scoped to reachable
+        // statuses for this ticket.
+        let options = await fetchStatusesForTicketType(ticket);
+
+        if (!options || !options.length) {
+          const cache = readHaloCacheLookup('cache_status') || new Map();
+          options = Array.from(cache.values()).filter(s => s && s.name).sort((a, b) =>
+            (a.sequence || 0) - (b.sequence || 0) || String(a.name).localeCompare(String(b.name))
+          );
+        }
+        openTicketChoicePicker(statusChip, options, ticket.status_id, async (opt) => {
+          await updateTicketField(ticket.id, { status_id: Number(opt.id) });
+          ticket.status_id = Number(opt.id);
+          statusChip.textContent = opt.name;
+          // Re-skin the chip to the new status's Halo colour. The picker
+          // passes the full status record, so we can read .colour directly.
+          const raw = String(opt.colour || opt.color || opt.chip_color || opt.status_colour || '').trim();
+          if (/^(#[0-9a-f]{3,8}|rgb(a)?\([^)]+\))$/i.test(raw)) {
+            statusChip.style.background = raw;
+            statusChip.style.borderColor = raw;
+            statusChip.style.color = '#fff';
+            statusChip.style.textShadow = '0 1px 1px rgba(0,0,0,0.25)';
+            statusChip.classList.add('hu-chip--colored');
+          } else {
+            statusChip.removeAttribute('style');
+            statusChip.classList.remove('hu-chip--colored');
+          }
+        });
       });
-      wrap.appendChild(kpiGrid);
-
-      const oTime = summary['Opened'] ? new Date(summary['Opened']).getTime() : 0;
-      const dTime = summary['Due By'] ? new Date(summary['Due By']).getTime() : 0;
-      if (oTime && dTime) {
-        const cTime   = summary['Closed'] ? new Date(summary['Closed']).getTime() : null;
-        const now     = cTime || Date.now();
-        const pct     = Math.min(Math.max((now - oTime) / (dTime - oTime), 0), 1);
-        const pctPx   = Math.round(pct * 100);
-        const barCol  = pct >= 1 ? '#ef4444' : pct >= 0.85 ? '#f59e0b' : '#10b981';
-        const daysOpen = Math.floor((now - oTime) / 86400000);
-        const daysLeft = Math.ceil((dTime - now) / 86400000);
-        const note = cTime ? `Closed after ${daysOpen}d`
-          : daysLeft > 0  ? `${daysLeft}d remaining`
-          : `${Math.abs(daysLeft)}d overdue`;
-        const timeCard = document.createElement('div');
-        timeCard.className = 'hu-card';
-        timeCard.style.marginBottom = '10px';
-        timeCard.innerHTML = `
-          <div class="hu-360-time-labels">
-            <span>Opened ${escapeHtml(timeAgo(summary['Opened']))}</span>
-            <span>Due ${escapeHtml(formatDateTime(summary['Due By']))}</span>
-          </div>
-          <div class="hu-360-time-track"><div class="hu-360-time-fill" style="width:${pctPx}%;background:${barCol}"></div></div>
-          <div class="hu-360-time-note">${escapeHtml(note)}</div>`;
-        wrap.appendChild(timeCard);
-      }
-
-      const peopleCard = document.createElement('div');
-      peopleCard.className = 'hu-card';
-      peopleCard.style.marginBottom = '10px';
-      peopleCard.innerHTML = '<div class="hu-section-title">People &amp; ownership</div>';
-      const peopleGrid = document.createElement('div');
-      peopleGrid.className = 'hu-stat-grid';
-      [
-        statItem('End user',    summary['End User'],       summary['User Email'] || summary['User Mobile'] || ''),
-        statItem('Assigned to', summary['Assigned Agent'], summary['Assigned Agent Email'] || ''),
-        linkedItem('Client', summary['Client ID'], summary['Client'], summary['Client ID'] ? routeDetail('customer', summary['Client ID']) : ''),
-        linkedItem('Site',   summary['Site ID'],   summary['Site'],   summary['Site ID']   ? routeDetail('site',     summary['Site ID'])   : '')
-      ].filter(Boolean).forEach(n => peopleGrid.appendChild(n));
-      peopleCard.appendChild(peopleGrid);
-      wrap.appendChild(peopleCard);
-
-      if (actions.length) {
-        const actCounts = {};
-        let totalMins = 0;
-        actions.forEach(a => {
-          const { label, color } = classifyAction(a['Outcome']);
-          actCounts[label] = actCounts[label] || { count: 0, color };
-          actCounts[label].count++;
-          totalMins += Number(a['Time Taken']) || 0;
+      const priorityChip = hero.querySelector('[data-action="priority"]');
+      if (priorityChip) priorityChip.addEventListener('click', () => {
+        const cache = readHaloCacheLookup('cache_priority') || new Map();
+        let options = Array.from(cache.values()).filter(p => p && p.name);
+        if (!options.length) {
+          // Fallback: hardcoded standard set when the cache hasn't loaded.
+          options = [
+            { id: 1, name: 'Critical', colour: '#ef4444' },
+            { id: 2, name: 'High',     colour: '#f97316' },
+            { id: 3, name: 'Medium',   colour: '#f59e0b' },
+            { id: 4, name: 'Low',      colour: '#10b981' }
+          ];
+        }
+        openTicketChoicePicker(priorityChip, options, ticket.priority_id, async (opt) => {
+          await updateTicketField(ticket.id, { priority_id: Number(opt.id) });
+          ticket.priority_id = Number(opt.id);
+          priorityChip.textContent = `${opt.name} priority`;
         });
-        const maxCount = Math.max(...Object.values(actCounts).map(v => v.count));
-        const actCard = document.createElement('div');
-        actCard.className = 'hu-card';
-        actCard.style.marginBottom = '10px';
-        const actHd = document.createElement('div');
-        actHd.className = 'hu-section-title-row';
-        actHd.innerHTML = `<span class="hu-section-title" style="margin:0">Activity</span>${totalMins ? `<span style="font-size:11px;color:#667085;font-weight:400">${escapeHtml(formatMinutes(totalMins))} logged</span>` : ''}`;
-        actCard.appendChild(actHd);
-        Object.entries(actCounts).sort((a, b) => b[1].count - a[1].count).forEach(([label, { count, color }]) => {
-          const row = document.createElement('div');
-          row.className = 'hu-360-act-row';
-          row.innerHTML = `<span class="hu-360-act-label">${escapeHtml(label)}</span>
-            <div class="hu-360-act-track"><div class="hu-360-act-fill" style="width:${Math.round(count / maxCount * 100)}%;background:${color}"></div></div>
-            <span class="hu-360-act-count">${count}</span>`;
-          actCard.appendChild(row);
-        });
-        wrap.appendChild(actCard);
-      }
+      });
 
-      const tlCard = document.createElement('div');
-      tlCard.className = 'hu-card';
-      tlCard.style.marginBottom = '10px';
+      // Wire quick-action buttons (Status quick-action removed — the status
+      // chip already opens the picker, no need for a duplicate).
+      const noteBtn = hero.querySelector('.hu-360-quick-btn[data-action="note"]');
+      const timeBtn = hero.querySelector('.hu-360-quick-btn[data-action="time"]');
+      const flagBtn = hero.querySelector('.hu-360-quick-btn[data-action="flag"]');
+      const copyBtn = hero.querySelector('.hu-360-quick-btn[data-action="copy-link"]');
+      noteBtn?.addEventListener('click', () => {
+        openInlineNoteEditor(hero, ticket.id, () => openTicket360Panel().catch(() => {}));
+      });
+      timeBtn?.addEventListener('click', () => {
+        openInlineTimeEditor(hero, ticket.id, () => openTicket360Panel().catch(() => {}));
+      });
+      flagBtn?.addEventListener('click', async () => {
+        const next = !ticket.flagged;
+        flagBtn.disabled = true;
+        try {
+          await updateTicketField(ticket.id, { flagged: next });
+          ticket.flagged = next;
+          flagBtn.querySelector('span').textContent = next ? 'Flagged' : 'Flag';
+          flagBtn.setAttribute('aria-pressed', next ? 'true' : 'false');
+        } catch (_) {
+          // Show a transient hint if Halo rejects the patch.
+          flagBtn.querySelector('span').textContent = 'Flag failed';
+          setTimeout(() => { flagBtn.querySelector('span').textContent = ticket.flagged ? 'Flagged' : 'Flag'; }, 1500);
+        } finally {
+          flagBtn.disabled = false;
+        }
+      });
+      copyBtn?.addEventListener('click', async () => {
+        const url = new URL(`/tickets?id=${ticket.id}`, window.location.origin).href;
+        const label = copyBtn.querySelector('span');
+        const restore = (text, delay = 1500) => setTimeout(() => { label.textContent = text; }, delay);
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(url);
+          } else {
+            // Fallback for older browsers / non-secure contexts.
+            const ta = document.createElement('textarea');
+            ta.value = url;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+          }
+          label.textContent = 'Copied';
+          restore('Copy link');
+        } catch (_) {
+          label.textContent = 'Copy failed';
+          restore('Copy link');
+        }
+      });
+
+      // Workflow & SLA (segmented bar + class-driven SLA + dates grid).
+      wrap.appendChild(renderTicket360StatusCard(ticket, summary));
+
+      // People (avatars, Customer + Assignee rows, change-assignee subtle button).
+      wrap.appendChild(renderTicket360PeopleSection(ticket, summary, ticket.id));
+
+      // Recent activity — flat section, semantic dot colours, kv table on
+      // the "Opened" event populated with the ticket's custom fields so the
+      // initial-state context lives inside the timeline instead of a
+      // separate card.
+      const tlSec = document.createElement('section');
+      tlSec.className = 'hu-360-sec';
+
       const tlHd = document.createElement('div');
-      tlHd.className = 'hu-section-title-row';
-      tlHd.innerHTML = '<span class="hu-section-title" style="margin:0">Recent actions</span>';
-      const tlBtn = document.createElement('button');
-      tlBtn.className = 'hu-copy';
-      tlBtn.style.cssText = 'font-size:10px;padding:2px 8px';
-      tlBtn.textContent = 'Full timeline';
-      tlBtn.addEventListener('click', () => openActionTimelinePanel(ticketId));
+      tlHd.className = 'hu-360-sec-h hu-360-sec-h-row';
+      tlHd.innerHTML = '<span>Recent activity</span>';
+      const tlBtn = document.createElement('a');
+      tlBtn.className = 'hu-360-link';
+      tlBtn.href = '#';
+      tlBtn.textContent = 'Full timeline →';
+      tlBtn.addEventListener('click', e => { e.preventDefault(); openActionTimelinePanel(ticketId); });
       tlHd.appendChild(tlBtn);
-      tlCard.appendChild(tlHd);
+      tlSec.appendChild(tlHd);
 
       const tl = document.createElement('div');
       tl.className = 'hu-360-tl';
+
+      // Classifier for semantic dot colour.
+      // Assignment / status-positive → is-ok (green)
+      // Data changes (user/client/site/priority etc.) → is-warn (amber)
+      // Opened / created / origin events → is-muted
+      // Errors / rejected / breached → is-danger (red)
+      const dotClass = outcome => {
+        const o = String(outcome || '').toLowerCase();
+        if (/open|created|logged|new ticket/.test(o)) return 'is-muted';
+        if (/breach|rejected|escalat|fail/.test(o))   return 'is-danger';
+        if (/reassign|re-assign|assigned|approved|status|resolved|closed/.test(o)) return 'is-ok';
+        if (/change|update|email|note|user.*chang|priority|type/.test(o))           return 'is-warn';
+        return 'is-muted';
+      };
+
       const displayActions = actions.slice(0, 6);
+      // The "Opened" event is the *chronologically earliest* action, not any
+      // action whose outcome happens to contain "logged" (which would catch
+      // "Time Logged" entries too). Find it by min timestamp.
+      const dated = actions.filter(a => a['When']).map(a => ({
+        id: a['Action ID'], t: new Date(a['When']).getTime()
+      })).filter(d => Number.isFinite(d.t));
+      const openEventActionId = dated.length
+        ? dated.reduce((min, x) => x.t < min.t ? x : min, dated[0]).id
+        : null;
+
       displayActions.forEach((action, i) => {
-        const { color } = classifyAction(action['Outcome']);
         const isLast = i === displayActions.length - 1;
         const note = action['Note'] ? String(action['Note']) : '';
-        const noteHtml = note
-          ? `<div class="hu-360-tl-note">${escapeHtml(note.slice(0, 200))}${note.length > 200 ? '...' : ''}</div>` : '';
-        const timePart = action['Time Taken'] ? ` - ${escapeHtml(formatMinutes(action['Time Taken']))}` : '';
+        const isOpenEvent = action['Action ID'] === openEventActionId;
+
+        // For the Opened event, embed a kv table of the ticket's custom fields
+        // (Type / Booking / Asset / Reported in the spec) inline below the note.
+        let kvHtml = '';
+        if (isOpenEvent && Array.isArray(ticket.customfields) && ticket.customfields.length) {
+          const rows = ticket.customfields
+            .filter(f => f && String(f.display || '').trim() && String(f.label || '').trim())
+            .slice(0, 8)
+            .map(f => {
+              const label = String(f.label);
+              return `<span class="hu-360-tl-kv-k" title="${escapeHtml(label)}">${escapeHtml(label)}</span><span class="hu-360-tl-kv-v">${escapeHtml(String(f.display))}</span>`;
+            })
+            .join('');
+          if (rows) kvHtml = `<div class="hu-360-tl-kv">${rows}</div>`;
+        }
+
+        // For the Opened event, Halo's `note` field is a run-together dump
+        // of every ticket field ("Ticket ID0003136Ticket TypeLaptop..." etc.).
+        // The kv table already shows that data cleanly, so hide the raw note
+        // and show just "<Agent> logged the ticket." as a sentence.
+        let noteHtml = '';
+        if (isOpenEvent) {
+          const who = action['Who'] ? String(action['Who']) : '';
+          noteHtml = `<div class="hu-360-tl-note">${who ? escapeHtml(who) + ' logged the ticket.' : 'Ticket created.'}</div>`;
+        } else if (note) {
+          noteHtml = `<div class="hu-360-tl-note">${escapeHtml(note.slice(0, 220))}${note.length > 220 ? '…' : ''}</div>`;
+        } else if (action['Who']) {
+          noteHtml = `<div class="hu-360-tl-note">${escapeHtml(action['Who'])}</div>`;
+        }
+
+        const minutes = Number(action['Time Taken']) || 0;
+        const durHtml = minutes > 0
+          ? `<span class="hu-360-tl-dur" title="Time logged">${escapeHtml(formatMinutes(minutes))}</span>`
+          : '';
+
         const row = document.createElement('div');
         row.className = 'hu-360-tl-row';
         row.innerHTML = `
           <div class="hu-360-tl-gutter">
-            <div class="hu-360-tl-dot" style="background:${color}"></div>
+            <div class="hu-360-tl-dot ${dotClass(action['Outcome'])}"></div>
             ${!isLast ? '<div class="hu-360-tl-line"></div>' : ''}
           </div>
           <div class="hu-360-tl-body">
-            <div class="hu-360-tl-title">${escapeHtml(action['Outcome'] || `Action ${action['Action ID']}`)}</div>
-            <div class="hu-360-tl-meta">${escapeHtml(action['Who'] || '--')} - ${escapeHtml(timeAgo(action['When']))}${timePart}</div>
+            <div class="hu-360-tl-th">
+              <div class="hu-360-tl-th-l">
+                <span class="hu-360-tl-title">${escapeHtml(action['Outcome'] || `Action ${action['Action ID']}`)}</span>
+                ${durHtml}
+              </div>
+              <span class="hu-360-tl-time">${escapeHtml(timeAgo(action['When']))}</span>
+            </div>
             ${noteHtml}
+            ${kvHtml}
           </div>`;
         tl.appendChild(row);
       });
-      if (!actions.length) tl.innerHTML = '<div class="hu-empty-note">No actions returned.</div>';
-      tlCard.appendChild(tl);
-      wrap.appendChild(tlCard);
+      if (!actions.length) tl.innerHTML = '<div class="hu-360-tl-note">No actions returned.</div>';
+      tlSec.appendChild(tl);
+      wrap.appendChild(tlSec);
+
+      // Status history + custom fields are now folded into the timeline
+      // (status changes drive the dot colours; the "Opened" event renders a
+      // kv table from the ticket's customfields), so no separate cards here.
+
+      // Async cards — fire in parallel, append as each resolves. The drawer
+      // is already visible at this point, so cards stream in below.
+      const asyncSlots = [
+        { fn: renderTicket360KbSuggestion,    arg: ticket },
+        { fn: renderTicket360LinkedRecords,   arg: ticket },
+        { fn: renderTicket360SimilarTickets,  arg: ticket }
+      ];
+      asyncSlots.forEach(({ fn, arg }) => {
+        const placeholder = document.createElement('div');
+        wrap.appendChild(placeholder);
+        Promise.resolve(fn(arg)).then(node => {
+          if (node && document.body.contains(placeholder)) {
+            placeholder.replaceWith(node);
+          } else {
+            placeholder.remove();
+          }
+        }).catch(() => placeholder.remove());
+      });
 
       if (trace.length) {
-        const traceCard = document.createElement('div');
-        traceCard.className = 'hu-card';
-        traceCard.innerHTML = '<div class="hu-section-title">Commercial trace</div>';
+        const traceCard = document.createElement('section');
+        traceCard.className = 'hu-360-sec';
+        traceCard.innerHTML = '<div class="hu-360-sec-h">Commercial trace</div>';
         const traceList = document.createElement('div');
         traceList.className = 'hu-list';
         trace.forEach(row => traceList.appendChild(renderTraceRow(row)));
@@ -3728,9 +7572,21 @@ ${orderBy}
         wrap.appendChild(traceCard);
       }
 
-      body.appendChild(wrap);
+      // wrap === body in v3 — sections were appended directly.
+      // Restore scroll position so an in-place refresh doesn't jump to top.
+      if (isInPlace && preservedScrollTop) body.scrollTop = preservedScrollTop;
     } catch (error) {
-      closeDrawer('hu-ticket360-drawer');
+      const msg = (error && error.message) || String(error || '');
+      const isPerm = isReportPermissionError(msg);
+      const title = isPerm
+        ? "You don't have permission to load this ticket"
+        : "Could not load Ticket 360";
+      const detail = isPerm
+        ? "Your Halo agent role doesn't allow viewing this ticket via the API. Ask an admin to grant you access to this ticket type."
+        : (msg || 'Unknown error.');
+      body.innerHTML = '<div class="hu-row"><span class="hu-row-title">' + escapeHtml(title) + '</span><span class="hu-row-sub">' + escapeHtml(detail) + '</span></div>';
+    } finally {
+      setTicket360Loading(false);
     }
 
     return true;
@@ -3753,13 +7609,37 @@ ${orderBy}
     openDrawer(drawer);
 
     try {
-      const payload = await runHaloReport(buildTicketActionTimelineQuery(resolvedTicketId), 'HaloPlus Action Timeline');
-      const loadError = getReportLoadError(payload);
-      if (loadError) {
-        body.innerHTML = `<div class="hu-row"><span class="hu-row-title">Action timeline query failed</span><span class="hu-row-sub">${escapeHtml(loadError)}</span></div>`;
-        return;
-      }
-      const rows = extractRows(payload);
+      // /api/actions respects ticket-view permission, so non-admin agents who
+      // can see the ticket in Halo's UI can also view its action timeline.
+      const actionsResp = await haloApiRequest(`/api/actions?ticket_id=${resolvedTicketId}&count=200`);
+      const actionRows = extractEntityList(actionsResp, 'actions');
+
+      // Flatten entity-API actions into the same SQL-alias shape the renderer expects.
+      const nameish = v => {
+        if (v == null) return '';
+        if (typeof v === 'string') return v;
+        if (typeof v === 'number') return String(v);
+        if (typeof v === 'object') return v.name || v.shortname || v.text || v.value || '';
+        return String(v);
+      };
+      const realDate = v => {
+        if (!v) return '';
+        const d = new Date(v);
+        if (isNaN(d.getTime())) return '';
+        if (d.getFullYear() < 2000) return '';
+        return v;
+      };
+      const rows = actionRows.map(a => ({
+        'Action ID':    a.id,
+        'Outcome':      nameish(a.outcome) || nameish(a.actioncode_name) || nameish(a.who_action_text),
+        'Note':         nameish(a.note),
+        'Who':          nameish(a.who) || nameish(a.agent_name),
+        'When':         realDate(a.datetime) || realDate(a.actiondatecreated) || realDate(a.actiondate) || realDate(a.who_changed),
+        'Time Taken':   a.timetaken || 0,
+        'Date Emailed': realDate(a.dateemailed),
+        'Hidden':       a.hiddenfromuser ? 1 : 0
+      }));
+
       body.innerHTML = '';
 
       const totalActions = rows.length;
@@ -3840,7 +7720,15 @@ ${orderBy}
       list.appendChild(listWrap);
       body.appendChild(list);
     } catch (error) {
-      body.innerHTML = `<div class="hu-row"><span class="hu-row-title">Could not load action timeline</span><span class="hu-row-sub">${escapeHtml(error.message)}</span></div>`;
+      const msg = (error && error.message) || String(error || '');
+      const isPerm = isReportPermissionError(msg);
+      const title = isPerm
+        ? "You don't have permission to view this ticket's actions"
+        : "Could not load action timeline";
+      const detail = isPerm
+        ? "Your Halo agent role doesn't allow viewing this ticket's actions via the API. Ask an admin to grant you access to this ticket type."
+        : (msg || 'Unknown error.');
+      body.innerHTML = '<div class="hu-row"><span class="hu-row-title">' + escapeHtml(title) + '</span><span class="hu-row-sub">' + escapeHtml(detail) + '</span></div>';
     }
 
     return true;
@@ -3883,10 +7771,18 @@ ${orderBy}
     return `<span class="hu-chip" title="${escapeHtml(label)}">${escapeHtml(value)}</span>`;
   }
 
-  function coloredChip(value, kind) {
+  function coloredChip(value, kind, explicitColour) {
     if (!value) return '';
     const v = String(value).toLowerCase();
     let bg, border, text;
+
+    // If an explicit Halo colour was supplied (e.g. cache_status.colour),
+    // derive a translucent background + border from it so the chip matches
+    // Halo's own colour palette exactly. Sanitised to hex/rgb only.
+    if (explicitColour && /^(#[0-9a-f]{3,8}|rgb(a)?\([^)]+\))$/i.test(String(explicitColour).trim())) {
+      const c = String(explicitColour).trim();
+      return `<span class="hu-chip" style="background:${c};border-color:${c};color:#fff;text-shadow:0 1px 1px rgba(0,0,0,0.25)">${escapeHtml(value)}</span>`;
+    }
 
     if (kind === 'status') {
       if (/closed|resolved|completed|done|fixed/.test(v))
@@ -4280,10 +8176,9 @@ ${orderBy}
         return;
       }
 
-      const payload = await runHaloReport(record.sql, `HaloPlus ${record.type} Inspector`);
-      const row = extractRows(payload)[0];
-      if (!row) {
-        body.innerHTML = '<div class="hu-row"><span class="hu-row-title">No payload returned</span><span class="hu-row-sub">Halo accepted the query, but did not return a record row.</span></div>';
+      const row = await haloApiRequest(record.apiPath);
+      if (!row || typeof row !== 'object') {
+        body.innerHTML = '<div class="hu-row"><span class="hu-row-title">No payload returned</span><span class="hu-row-sub">Halo returned an empty response.</span></div>';
         return;
       }
 
@@ -4295,7 +8190,7 @@ ${orderBy}
       toolbar.innerHTML = `
         <div>
           <span class="hu-row-title">${escapeHtml(record.type)} ${escapeHtml(record.id)}</span>
-          <span class="hu-row-sub">${escapeHtml(record.sql)}</span>
+          <span class="hu-row-sub">GET ${escapeHtml(record.apiPath)}</span>
         </div>
         <button class="hu-copy hu-copy-json" title="Copy JSON to clipboard">Copy JSON</button>
       `;
@@ -4314,33 +8209,45 @@ ${orderBy}
       pre.textContent = jsonText;
       body.appendChild(pre);
     } catch (error) {
-      body.innerHTML = `<div class="hu-row"><span class="hu-row-title">Could not load JSON</span><span class="hu-row-sub">${escapeHtml(error.message)}</span></div>`;
+      const msg = (error && error.message) || String(error || '');
+      const isPerm = isReportPermissionError(msg);
+      const title = isPerm
+        ? "You don't have permission to view this record"
+        : "Could not load JSON";
+      const detail = isPerm
+        ? "Your Halo agent role doesn't allow viewing this record via the API. Ask an admin to grant you access."
+        : (msg || 'Unknown error.');
+      body.innerHTML = '<div class="hu-row"><span class="hu-row-title">' + escapeHtml(title) + '</span><span class="hu-row-sub">' + escapeHtml(detail) + '</span></div>';
     }
   }
 
   function detectCurrentRecordQuery() {
     const url = new URL(window.location.href);
-    const text = url.href.toLowerCase();
-    const id = url.searchParams.get('id') || url.searchParams.get('faultid') || url.searchParams.get('selid');
+    const path = url.pathname.toLowerCase();
+    const params = url.searchParams;
+    const id = params.get('id') || params.get('faultid') || params.get('selid')
+            || params.get('agentid') || params.get('userid') || params.get('clientid');
     if (!id) return null;
-
     const safeId = Number(id);
     if (!Number.isFinite(safeId)) return null;
 
-    if (text.includes('/ticket') || text.includes('/fault')) {
-      return { type: 'Ticket', id, sql: `SELECT TOP 1 * FROM faults WHERE Faultid = ${safeId}` };
+    // Map URL paths to the entity-API endpoint that returns the raw record.
+    // Each endpoint respects the agent's ticket/user/agent/asset view permission,
+    // so non-admin agents see the records they're allowed to see.
+    if ((path.includes('/ticket') || path.includes('/fault')) && !path.includes('/config/')) {
+      return { type: 'Ticket', id, apiPath: `/api/tickets/${safeId}` };
     }
-    if (text.includes('/customer') || text.includes('/area') || text.includes('/client')) {
-      return { type: 'Customer', id, sql: `SELECT TOP 1 * FROM area WHERE AArea = ${safeId}` };
+    if (path.includes('/customer') || path.includes('/area') || path.includes('/client')) {
+      return { type: 'Customer', id, apiPath: `/api/client/${safeId}` };
     }
-    if (text.includes('/agent') || text.includes('/uname')) {
-      return { type: 'Agent', id, sql: `SELECT TOP 1 * FROM uname WHERE UNum = ${safeId}` };
+    if (path.includes('/agent') || path.includes('/uname')) {
+      return { type: 'Agent', id, apiPath: `/api/agent/${safeId}` };
     }
-    if (text.includes('/user')) {
-      return { type: 'User', id, sql: `SELECT TOP 1 * FROM users WHERE uid = ${safeId}` };
+    if (path.includes('/user')) {
+      return { type: 'User', id, apiPath: `/api/users/${safeId}` };
     }
-    if (text.includes('/asset') || text.includes('/device')) {
-      return { type: 'Asset', id, sql: `SELECT TOP 1 * FROM device WHERE DID = ${safeId}` };
+    if (path.includes('/asset') || path.includes('/device')) {
+      return { type: 'Asset', id, apiPath: `/api/asset/${safeId}` };
     }
 
     return null;
@@ -4413,7 +8320,9 @@ ${orderBy}
     drawer.innerHTML = `
       <div class="hu-drawer-header">
         <span class="hu-drawer-title">${escapeHtml(title)}</span>
-        <button class="hu-icon-btn" title="Close">x</button>
+        <button class="hu-icon-btn" title="Close" aria-label="Close">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+        </button>
       </div>
       <div class="hu-drawer-body"></div>
     `;
@@ -4483,6 +8392,7 @@ ${orderBy}
       showHaloMenu();
       showHaloSidebars();
       document.getElementById('hu-360-inject-btn')?.classList.remove('is-active');
+      stopTicket360LiveUpdates();
     }
     el.style.transform = 'translateX(calc(100% + 40px))';
     el.addEventListener('transitionend', () => el.remove(), { once: true });
@@ -4965,6 +8875,9 @@ ${orderBy}
       sendContext();
       trackRecentRecord();
       maybeScrapeConfigPage();
+      // Fire-and-forget probe of /api/Report so Data Viewer + Schema gating
+      // has a definitive answer. Resend context once the probe resolves.
+      probeReportApi().then(() => sendContext()).catch(() => {});
     }, 1200);
 
     let lastUrl = location.href;
@@ -5054,6 +8967,51 @@ ${orderBy}
     if (message.type === 'HU_GET_CONTEXT') {
       sendResponse({ ok: true, data: detectContext() });
       return false;
+    }
+
+    if (message.type === 'HU_GET_PAGE_DIAGNOSTICS') {
+      // Page-side state for the side panel's Diagnostics card. Bundles the
+      // permission/claim summary, impersonation flag, entity-API access map,
+      // and report API status so the panel can render a clear "who am I and
+      // what works for me" view without re-probing.
+      const permissions = readHaloPermissions();
+      probeReportApi().then(reportOk => {
+        sendResponse({
+          ok: true,
+          data: {
+            permissions: {
+              isAdmin: !!permissions.isAdmin,
+              canImpersonate: !!permissions.canImpersonate,
+              canLogTickets: !!permissions.canLogTickets,
+              canEditClosedTickets: !!permissions.canEditClosedTickets,
+              canRunPowerShell: !!permissions.canRunPowerShell,
+              totalClaims: permissions.totalClaims || 0,
+              currentAgentId: permissions.currentAgentId || '',
+              parentAgentId: permissions.parentAgentId || '',
+              isImpersonating: !!permissions.isImpersonating
+            },
+            reportApiOk: reportOk,
+            reportApiError: HU.reportApiError || '',
+            entityAccess: HU.entityAccess || null,
+            ticketTypeCount: HU.ticketTypeCommands.length,
+            ticketTypeTagsLoaded: !!HU.ticketTypeTagsLoaded
+          }
+        });
+      }).catch(error => sendResponse({ ok: false, error: error.message }));
+      return true;
+    }
+
+    if (message.type === 'HU_GET_REPORT_STATUS') {
+      // Force a fresh probe if we've never run one (e.g. side panel opens
+      // before the init delay fires). Otherwise return the cached tri-state.
+      probeReportApi().then(ok => {
+        sendResponse({
+          ok: true,
+          reportApiOk: ok,
+          reportApiError: HU.reportApiError || ''
+        });
+      }).catch(error => sendResponse({ ok: false, error: error.message }));
+      return true;
     }
 
     if (message.type === 'HU_NAVIGATE') {
@@ -5564,6 +9522,13 @@ WHERE COLUMN_NAME LIKE 'CF%'
   initPalette();
   initNavigationTracking();
   initEmailVarAutocomplete();
+  // Background probes:
+  // - probeReportApi(): determines whether /api/Report (SQL) is callable.
+  //   Result gates SQL fallbacks so non-admin agents don't flood the network
+  //   tab with guaranteed 403s on every keystroke.
+  // - probeEntityAccess(): per-entity API access for greying-out palette commands.
+  setTimeout(() => { probeReportApi().catch(() => {}); }, 500);
+  setTimeout(() => { probeEntityAccess().catch(() => {}); }, 2000);
   setTimeout(() => {
     injectTicket360Button();
     scheduleAutoTicket360();
