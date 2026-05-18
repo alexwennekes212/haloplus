@@ -2,6 +2,9 @@
 .vscode/
 .idea/
 
+# Local Claude project guide — auto-loaded by Claude Code, not for GitHub.
+CLAUDE.md
+
 node_modules/
 dist/
 build/

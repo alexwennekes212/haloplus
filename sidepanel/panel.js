@@ -22,6 +22,20 @@ const LAST_SEEN_VERSION_KEY = 'huLastSeenVersion';
 // belong in CHANGELOG.md. Only the entries for the current manifest version
 // are surfaced.
 const RELEASE_HIGHLIGHTS = {
+  '1.2.1': {
+    title: 'What\'s new in HaloPlus 1.2.1',
+    items: [
+      ['Reworked SLA visualisation', 'Respond and Fix sit side-by-side as separate bars (40/60 split) with the same split on the hero donut. Closed-and-met SLAs now show how much of the window was used — dark band for consumed, lighter band for the headroom. A green check marks met SLAs, a red badge marks breaches, and the donut centre shows the closing verdict ("All met" or "Fix 2h over").'],
+      ['Click the open-count chip to drill in', 'Clicking the orange "12 open" badge on a ticket-scoped command drops you straight into that scope, filtered to open tickets (newest first). The /cfg chip and individual section chips drill into their submenus the same way.'],
+      ['Ticket type pill in palette results', 'Each result now has a dedicated ticket-type pill next to the status pill, with the end user and client moved into the subtitle.'],
+      ['Tenant-matched colours', 'Priority pill uses your tenant\'s configured Halo priority colour, and action timeline dots use your configured outcome colours. Both fall back to the previous palette when no colour is set.'],
+      ['Adjusted action time shown', 'When a supervisor adjusts the billable time on an action, the timeline pill now shows the adjusted figure (indigo + dotted underline) with the raw value in the tooltip.'],
+      ['Halo timestamps fixed', 'Ticket 360, SLA bars, aging badges, and the timeline now render in your local timezone correctly. Halo\'s API returns datetimes without a timezone marker — HaloPlus now treats them as UTC instead of local, eliminating multi-hour skew for agents outside UTC.'],
+      ['Logged time unit fix', 'The inline "Log time" editor was writing minutes into Halo\'s hours field, and timeline pills were showing 0m for sub-hour entries. New entries now save and render correctly. Older entries written by 1.2.0 may need a manual review in Halo (they\'ll show inflated totals).'],
+      ['Caret icons on Ticket 360 pills', 'Status and priority pills show a small caret so it\'s clear they\'re clickable pickers. The caret stays put when the pill relabels after a status change.'],
+      ['Double-click in forms no longer triggers field names', 'The "show technical field names" double-click handler now ignores Halo form widgets so it won\'t fire while you\'re editing.']
+    ]
+  },
   '1.2.0': {
     title: 'What\'s new in HaloPlus 1.2.0',
     items: [

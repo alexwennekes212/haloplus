@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.2.1
+
+### Palette
+- **Open-count chip is now clickable.** Click the orange `12 open` badge on a ticket-scoped command to drop straight into that command's scope, filtered to just the open tickets (newest first). Equivalent to typing the command and the trailing space, but with `open_only=true` and an explicit `id desc` order applied to the API call. Scope clears as soon as you switch to a different command.
+- **Chip drill-down also works on `/cfg` and on individual config sections.** Clicking the `33 ›` chip on the `/cfg` row drills into the section list; clicking the count chip on a section (e.g. `Tickets · 27 ›`) drills into that section's subsections. Same destination as ArrowRight, faster with the mouse.
+- **Ticket type rendered as its own pill** in result rows, sitting alongside the status pill. The subtitle now shows just end-user + client, so the ticket type stands out instead of being buried in the dot-separated tail.
+
+### Ticket 360
+- **Status and priority pills now show a small caret** to telegraph that they're clickable (status / priority picker). Caret stays attached even after the pill relabels itself on a status change.
+- **Priority pill colour now comes from `cache_priority`** so it matches the tenant's actual Halo palette in Settings → Priorities (same treatment the status pill already had). Falls back to the regex-derived class when the cache is empty or the colour isn't a valid hex/rgb.
+- **Timeline dot colours now come from `cache_actionoutcome`** (with `cache_outcome` as a secondary fallback). Matches by `outcome_id` first, then case-insensitive outcome name. When no tenant colour is configured, the existing semantic regex (status / email / note / time) still applies. Applied to both the 360 inline timeline and the dedicated Action Timeline.
+- **Adjusted time on actions is now surfaced.** Halo's `timetaken_adjusted` field (set by supervisors to override the agent-logged time for billing) wins over the raw `timetaken` whenever it's set. The 360 pill turns indigo with a dotted underline when adjusted differs from raw, and the tooltip shows both values (`Adjusted 30m (raw 45m)`).
+- **SLA bars + donut: side-by-side 40/60 split.** Respond takes 40% of the row / arc, Fix takes 60%. Single-SLA tickets get the full width / full arc. The donut keeps an 8% gap between its two slices so the boundary stays visually distinct.
+- **Used vs spare on met SLAs.** Closed-and-met SLAs now show how much of the window was consumed — full-colour band for the used portion, 30%-opacity overlay of the same colour for the remaining headroom. A Fix closed at 63% of its window reads as a strong 63% band with a faint 37% tail. Breached and live SLAs still render as a single solid fill.
+- **Status icons on SLA bars + donut.** Met-on-time renders a green check (replacing the "Met" text). Breached SLAs (met-late or live past-due) render a red filled-circle X badge followed by the overshoot duration. The donut centre shows the verdict for closed tickets: `✓ All met` or `✗ Fix 30s over`. Plain countdown states (`3h left`, `Closed`) stay as text.
+- **Closed-ticket SLA donut shows a verdict.** Instead of arbitrarily surfacing one finished SLA, a closed ticket renders either `✓ All met` (green) or `✗ <name> <overshoot>` (red, worst breach by overshoot duration). Open tickets keep the "most critical active SLA" behaviour.
+- **Donut caption moved below the arc.** Long verdicts overlapped the curve. The caption now sits 8px under the donut with the full 140px width to work with. Container height grew from 48px to 72px; the meta-row aligns vertically so neighbouring chips stay centred.
+
+### Fixes
+- **Double-click to show field API names** no longer triggers while editing inside Halo forms. The handler now also ignores clicks on `<form>` descendants, native form widgets without a wrapping form (Halo's React app omits it in places), and ARIA `button` / `combobox` / `listbox` / `textbox` / `searchbox` / `checkbox` / `radio` / `option` roles.
+- **Logged time now renders correctly in the timeline.** Halo's `actions.timetaken` field is stored as decimal hours, not minutes. The previous code treated it as raw minutes, so a 15-minute log (stored as `0.25`) rounded to `0m` and the pill never rendered. Both the Ticket 360 amber pill and the dedicated Action Timeline (per-row and total) now convert hours → minutes before formatting. The inline "Log time" editor also now POSTs `timetaken: minutes / 60` so newly-logged entries are saved with the right magnitude in Halo. (Older entries written by HaloPlus 1.2.0 stored their minute value in the hours column — check those manually if you used the inline time editor before this fix.)
+- **Respond SLA met-vs-breached now reads from `responsedate`.** The actual response timestamp is the source of truth for met-on-time vs met-late — the dashboard compares it to `respondbydate` and shows the icon + overshoot accordingly. `slaresponsestate === 'O'` short-circuits any "completed" fallback so a closed ticket with a late response no longer renders green. Closed-and-met-on-time stays green; closed-and-met-late shows the red cross + overshoot.
+- **Sub-minute overshoots now show in seconds.** `formatDurationShort` used to round anything below a minute to "0m". A response 30 seconds late now reads "30s over" rather than "0m over".
+- **Halo timestamps now parse as UTC.** Halo's entity APIs return ISO datetimes without a `Z` suffix (e.g. `2026-05-13T18:01:50.347`), which JavaScript interprets as local time per ECMA-262. The result was every date being skewed by the user's timezone offset — CEST agents saw "Opened" times 2h early, SLA percentages drifted, and "open Xd" badges could be off by a day. A new `parseHaloDate()` helper appends `Z` to any Halo datetime missing a timezone indicator so all downstream math (`formatDateTime`, SLA donut, SLA bars, aging badges, average-close, timeline ordering, recent records sort) runs in UTC and renders in the user's local zone.
+
 ## 1.2.0
 
 ### Non-admin agents can now use HaloPlus

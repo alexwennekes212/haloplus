@@ -348,6 +348,13 @@
     // silently ignored). Client-side typeId filter below is still applied as
     // belt-and-braces.
     if (hasTypeIdFilter && isTicketRoute) params.set('requesttype', String(def.typeId));
+    // Open-only mode is set when the agent clicks the open-count badge — the
+    // scope then returns just the open tickets, newest first.
+    if (def.openOnly && isTicketRoute) {
+      params.set('open_only', 'true');
+      params.set('order', 'id');
+      params.set('orderdesc', 'true');
+    }
 
     const response = await haloApiRequest(`${config.path}?${params.toString()}`);
     let records = extractEntityList(response, config.listKey);
@@ -471,16 +478,18 @@
       if (id == null) return null;
       const rawTitle = pickField(record, config.titleFields) || `${def.kind} ${id}`;
 
-      // Tickets get a richer subtitle: ticket type + user + client (skipping
-      // empties and de-duping). Other entities use the first matching field.
+      // Tickets get a richer subtitle: user + client (de-duped). The ticket
+      // type renders separately as a chip alongside the status pill so it's
+      // visually distinct and consistent across results.
       let rawSubtitle;
+      let ticketTypeName = '';
       if (def.route === 'ticket') {
+        ticketTypeName = String(lookupTypeName(record) || '').trim();
         const parts = [
-          lookupTypeName(record),                                            // e.g. "Incident"
-          valueText(record.user_name) || valueText(record.user),             // e.g. "General User"
-          valueText(record.client_name)                                       // e.g. "Pink Academy"
+          valueText(record.user_name) || valueText(record.user),
+          valueText(record.client_name)
         ].map(s => String(s || '').trim()).filter(Boolean);
-        rawSubtitle = Array.from(new Set(parts)).slice(0, 3).join(' · ');
+        rawSubtitle = Array.from(new Set(parts)).slice(0, 2).join(' · ');
       } else if (def.route === 'kb') {
         // KB: show category (Halo uses several field names depending on tenant
         // config — FAQ list vs Category) alongside a short description snippet.
@@ -505,6 +514,7 @@
         kind: def.kind,
         type: 'navigate',
         status,
+        ticketType: ticketTypeName || undefined,
         url: new URL(routeDetail(def.routeType || def.route, id), window.location.origin).href
       };
     }).filter(Boolean);
@@ -1220,9 +1230,25 @@
     return fallback && /^\d+$/.test(fallback) ? Number(fallback) : 0;
   }
 
+  // Halo's API returns date-times without an explicit timezone (e.g.
+  // "2026-05-13T18:01:50.347"). The values are stored in UTC but JS's
+  // `new Date(str)` interprets a zone-less ISO string as LOCAL time, which
+  // shifts every Halo time by the agent's UTC offset (2h for CEST agents
+  // — the original bug report). Append 'Z' when no zone is present so JS
+  // parses it as UTC and converts to local for display + SLA math.
+  function parseHaloDate(value) {
+    if (value == null) return new Date(NaN);
+    if (value instanceof Date) return value;
+    const str = String(value);
+    if (str.includes('T') && !/Z$|[+\-]\d{2}:?\d{2}$/.test(str)) {
+      return new Date(str + 'Z');
+    }
+    return new Date(str);
+  }
+
   function formatDateTime(value) {
     if (!value) return '--';
-    const date = new Date(value);
+    const date = parseHaloDate(value);
     if (Number.isNaN(date.getTime())) return String(value);
     return new Intl.DateTimeFormat(undefined, {
       year: 'numeric',
@@ -1231,6 +1257,28 @@
       hour: '2-digit',
       minute: '2-digit'
     }).format(date);
+  }
+
+  // Halo's `actions.timetaken` is stored as decimal HOURS (both in SQL and in
+  // the entity-API response). Convert to minutes before formatting so a
+  // 15-minute log (`timetaken: 0.25`) renders as `15m`, not `0m`.
+  function minutesFromTimetaken(value) {
+    const hours = Number(value);
+    if (!Number.isFinite(hours) || hours <= 0) return 0;
+    return Math.round(hours * 60);
+  }
+
+  // Supervisors can adjust the billable time on an action via
+  // `timetaken_adjusted`. When set (and different from the raw value), it's
+  // the figure that flows through to invoicing — prefer it over the raw.
+  // Falls back to `timetaken` when adjusted is unset/zero.
+  function effectiveActionMinutes(action) {
+    if (!action) return 0;
+    const adjusted = minutesFromTimetaken(
+      action['Time Taken Adjusted'] ?? action.timetaken_adjusted
+    );
+    if (adjusted > 0) return adjusted;
+    return minutesFromTimetaken(action['Time Taken'] ?? action.timetaken);
   }
 
   function formatMinutes(value) {
@@ -1397,8 +1445,8 @@ FROM (
 
   function sortTraceRows(rows) {
     return [...rows].sort((a, b) => {
-      const dateA = new Date(a?.['Date'] || 0).getTime() || 0;
-      const dateB = new Date(b?.['Date'] || 0).getTime() || 0;
+      const dateA = (a?.['Date'] ? parseHaloDate(a['Date']).getTime() : 0) || 0;
+      const dateB = (b?.['Date'] ? parseHaloDate(b['Date']).getTime() : 0) || 0;
       if (dateA !== dateB) return dateB - dateA;
       return String(a?.['Record Type'] || '').localeCompare(String(b?.['Record Type'] || ''));
     });
@@ -1591,6 +1639,14 @@ FROM (
         text-shadow: 0 1px 1px rgba(0,0,0,0.18); vertical-align: 1px;
         max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
+      .hu-palette .hu-type-pill {
+        display: inline-block; padding: 1px 6px; margin-right: 6px;
+        font-size: calc(9.5px * var(--hu-palette-font-scale)); font-weight: 500;
+        line-height: 1.35; color: #5e6b80; background: #eef1f6;
+        border: 1px solid #dde3ec; border-radius: 8px;
+        vertical-align: 1px;
+        max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
       .hu-spinner {
         display: inline-block; width: 12px; height: 12px; margin-right: 8px;
         border: 2px solid #d8dde8; border-top-color: #2196f3; border-radius: 50%;
@@ -1602,6 +1658,8 @@ FROM (
       .hu-palette .hu-result-kind { color: #6a7280; font-size: calc(10px * var(--hu-palette-font-scale)); line-height: 1; align-self: center; border: 1px solid #e0e5ee; border-radius: 5px; padding: 2px 5px; }
       .hu-palette .hu-result-kind-accent { background: #ff9b51; border-color: #ff9b51; color: #fff; font-weight: 700; letter-spacing: 0.02em; }
       .hu-palette .hu-result.hu-active .hu-result-kind-accent { background: #ff8a35; border-color: #ff8a35; }
+      .hu-palette .hu-result-kind-clickable { cursor: pointer; }
+      .hu-palette .hu-result-kind-clickable:hover { filter: brightness(1.08); box-shadow: 0 0 0 2px rgba(255,155,81,0.25); }
       .hu-palette-footer {
         border-top: 1px solid #e3e7ef; padding: 9px 14px 10px; background: #fbfcff;
         color: #667085; font-size: calc(12px * var(--hu-palette-font-scale));
@@ -2235,18 +2293,29 @@ FROM (
       }
       #hu-ticket360-drawer .hu-360-sla-donut {
         position: relative; flex-shrink: 0;
-        width: 140px; height: 48px;
+        width: 140px; height: 72px;
         animation: hu-360-donut-fade 0.45s ease-out;
       }
+      /* Caption sits 8px under the arc (arc renders in the top 48px of the
+         SVG), so it has the full 140px width to work with and never clips
+         through the donut graph. */
       #hu-ticket360-drawer .hu-360-sla-donut-center {
-        position: absolute; left: 0; right: 0; top: 36px;
+        position: absolute; left: 0; right: 0; top: 56px;
         text-align: center; pointer-events: none;
         font-size: 11.5px; font-weight: 600; letter-spacing: 0.01em;
         font-variant-numeric: tabular-nums;
+        display: flex; align-items: center; justify-content: center; gap: 4px;
+        line-height: 1.2;
+      }
+      /* Truncate with an ellipsis if a label is somehow wider than 140px. */
+      #hu-ticket360-drawer .hu-360-sla-donut-center-text {
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        min-width: 0;
       }
       #hu-ticket360-drawer .hu-360-sla-donut-center.is-ok     { color: #22c55e; }
       #hu-ticket360-drawer .hu-360-sla-donut-center.is-warn   { color: #fbbf24; }
       #hu-ticket360-drawer .hu-360-sla-donut-center.is-danger { color: #fca5a5; }
+      .hu-sla-status-icon { vertical-align: -1px; flex-shrink: 0; }
       @keyframes hu-360-donut-fade {
         from { opacity: 0; transform: scale(0.88); }
         to   { opacity: 1; transform: scale(1); }
@@ -2258,6 +2327,7 @@ FROM (
       #hu-ticket360-drawer .hu-360-sla-donut-fill.is-ok     { stroke: #22c55e; }
       #hu-ticket360-drawer .hu-360-sla-donut-fill.is-warn   { stroke: #f59e0b; }
       #hu-ticket360-drawer .hu-360-sla-donut-fill.is-danger { stroke: #ef4444; }
+      #hu-ticket360-drawer .hu-360-sla-donut-fill-spare { opacity: 0.30; }
       @keyframes hu-360-sla-donut-fill-anim {
         from { stroke-dashoffset: var(--sla-arc-len); }
         to   { stroke-dashoffset: var(--sla-end-offset); }
@@ -2390,8 +2460,24 @@ FROM (
       #hu-ticket360-drawer .hu-360-status-bars {
         display: flex; flex-direction: column; gap: 10px; border-top: 0; padding-top: 0; margin-top: 0;
       }
+      /* Split layout: Respond and Fix sit next to each other with widths
+         proportional to each SLA's total duration (flex-grow set inline). */
+      #hu-ticket360-drawer .hu-360-status-bars.hu-360-status-bars--split {
+        flex-direction: row; gap: 6px; align-items: stretch;
+      }
       #hu-ticket360-drawer .hu-360-sla-row {
         display: flex; flex-direction: column; gap: 5px; margin: 0;
+      }
+      #hu-ticket360-drawer .hu-360-status-bars--split .hu-360-sla-label-row {
+        font-size: 11px; gap: 6px;
+        /* Allow labels to wrap past the bar boundary instead of truncating
+           with an ellipsis when the bar's proportional width is too narrow. */
+        overflow: visible;
+      }
+      #hu-ticket360-drawer .hu-360-status-bars--split .hu-360-sla-label,
+      #hu-ticket360-drawer .hu-360-status-bars--split .hu-360-sla-due {
+        white-space: nowrap; overflow: visible; text-overflow: clip;
+        flex-shrink: 0;
       }
       #hu-ticket360-drawer .hu-360-sla-label-row {
         display: flex; align-items: center; justify-content: space-between; font-size: 12px;
@@ -2404,14 +2490,19 @@ FROM (
       #hu-ticket360-drawer .hu-360-sla-due.is-warn { color: #f59e0b; }
       #hu-ticket360-drawer .hu-360-sla-due.is-danger { color: #ef4444; }
       #hu-ticket360-drawer .hu-360-sla-track {
+        position: relative;
         height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;
       }
       #hu-ticket360-drawer .hu-360-sla-fill {
+        position: absolute; left: 0; top: 0;
         height: 100%; border-radius: 2px; background: rgba(255,255,255,0.40);
       }
       #hu-ticket360-drawer .hu-360-sla-fill.is-ok { background: #10b981; }
       #hu-ticket360-drawer .hu-360-sla-fill.is-warn { background: #f59e0b; }
       #hu-ticket360-drawer .hu-360-sla-fill.is-danger { background: #ef4444; }
+      /* Spare overlay sits behind the main fill and uses the same hue at low
+         opacity, so closed-met SLAs read as "used % dark + spare % light". */
+      #hu-ticket360-drawer .hu-360-sla-fill-spare { opacity: 0.30; }
 
       /* Dates grid — Opened + Due side-by-side as a 2-col layout */
       #hu-ticket360-drawer .hu-360-dates {
@@ -2572,6 +2663,11 @@ FROM (
         padding: 1px 6px; border-radius: 999px; flex-shrink: 0;
         font-variant-numeric: tabular-nums;
       }
+      #hu-ticket360-drawer .hu-360-tl-dur.is-adjusted {
+        background: rgba(99,102,241,0.18); border-color: rgba(99,102,241,0.45);
+        text-decoration: underline dotted rgba(255,255,255,0.45);
+        text-underline-offset: 2px;
+      }
       #hu-ticket360-drawer .hu-360-tl-time {
         font-size: 11px; color: rgba(255,255,255,0.45); flex-shrink: 0;
         font-variant-numeric: tabular-nums;
@@ -2644,6 +2740,13 @@ FROM (
       }
       #hu-ticket360-drawer .hu-chip-clickable:hover { filter: brightness(1.18); }
       #hu-ticket360-drawer .hu-chip-clickable:active { transform: scale(0.97); }
+      #hu-ticket360-drawer .hu-chip-clickable .hu-chip-caret {
+        margin-left: 5px; opacity: 0.75; flex-shrink: 0;
+        transition: opacity 0.12s, transform 0.12s;
+      }
+      #hu-ticket360-drawer .hu-chip-clickable:hover .hu-chip-caret {
+        opacity: 1; transform: translateY(1px);
+      }
 
       /* Inline note editor — sits between hero and the next section */
       .hu-360-note-editor {
@@ -2807,6 +2910,10 @@ FROM (
       html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-dur {
         color: #92400e; background: #fef3c7; border-color: #fcd34d;
       }
+      html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-dur.is-adjusted {
+        color: #3730a3; background: #e0e7ff; border-color: #a5b4fc;
+        text-decoration-color: rgba(55,48,163,0.45);
+      }
       html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-note { color: #5e7290; }
       html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-note strong { color: #172033; }
       html.hu-theme-light #hu-ticket360-drawer .hu-360-tl-kv { background: #f8fafc; }
@@ -2936,6 +3043,9 @@ FROM (
       html.hu-theme-dark .hu-row:hover { background: #1d2a42; }
       html.hu-theme-dark .hu-result-sub,
       html.hu-theme-dark .hu-row-sub { color: #a7afbd; }
+      html.hu-theme-dark .hu-palette .hu-type-pill {
+        color: #a7afbd; background: #1d2a42; border-color: #303744;
+      }
       html.hu-theme-dark .hu-drawer-header,
       html.hu-theme-dark .hu-toolbar-row { border-color: #303744; }
       html.hu-theme-dark .hu-json-formatted { color: #edf1f7; }
@@ -3317,6 +3427,7 @@ FROM (
     document.getElementById('hu-palette')?.remove();
     document.getElementById('hu-palette-backdrop')?.remove();
     HU.paletteOpen = false;
+    HU.paletteOpenOnlyScope = null;
     clearTimeout(HU.searchTimer);
   }
 
@@ -3424,7 +3535,15 @@ FROM (
     // doesn't know the keyword.
     const commandId = ENTITY_COMMAND_IDS[keyword] || def.commandId;
     if (!commandId) return null;
-    return { def: { ...def, commandId }, keyword, searchTerm };
+    // Open-only badge mode — set when the agent clicks the open-count chip.
+    // Kept until the scope changes to a different command, then cleared so
+    // typing into a different scope doesn't surprise the agent.
+    let openOnly = false;
+    if (HU.paletteOpenOnlyScope) {
+      if (HU.paletteOpenOnlyScope === commandId) openOnly = true;
+      else HU.paletteOpenOnlyScope = null;
+    }
+    return { def: { ...def, commandId, openOnly }, keyword, searchTerm };
   }
 
   async function searchEntityRecords(def, searchTerm) {
@@ -4502,10 +4621,13 @@ ${orderBy}
                       : '#5b6478';
       statusHtml = `<span class="hu-status-pill" style="background:${safeColor}">${escapeHtml(item.status.name)}</span>`;
     }
+    const ticketTypeHtml = item.ticketType
+      ? `<span class="hu-type-pill">${escapeHtml(item.ticketType)}</span>`
+      : '';
     button.innerHTML = `
       <span>
         <span class="hu-result-title">${escapeHtml(item.displayTitle || item.title)}</span>
-        <span class="hu-result-sub">${statusHtml}${escapeHtml(disabled && item.disabledReason ? item.disabledReason : (item.subtitle || ''))}</span>
+        <span class="hu-result-sub">${statusHtml}${ticketTypeHtml}${escapeHtml(disabled && item.disabledReason ? item.disabledReason : (item.subtitle || ''))}</span>
       </span>
       <span class="${kindClass}">${escapeHtml(kindLabel)}</span>
     `;
@@ -4513,7 +4635,77 @@ ${orderBy}
       if (HU.selectedIndex !== index) setPaletteSelection(index);
     });
     if (!disabled) button.addEventListener('click', () => activateResult(item));
+
+    // Secondary action on the right-side chip — opens whichever submenu is
+    // appropriate for the row type:
+    //   - /cfg row (isCfgEntry)              → cfg section list
+    //   - cfg section row with subsections   → that section's subsections
+    //   - ticket-scoped command with count   → open tickets in that scope
+    if (!disabled) {
+      const chip = button.querySelector('.hu-result-kind');
+      const drillsCfg = !!item.isCfgEntry;
+      const drillsCfgSection = !!item.configSlug && !item.subSlug && Number(item.subCount) > 0;
+      const drillsOpenScope = item.type === 'command' &&
+        Number(item.subCount) > 0 &&
+        isTicketScopedCommandId(item.id);
+      if (chip && (drillsCfg || drillsCfgSection || drillsOpenScope)) {
+        chip.classList.add('hu-result-kind-clickable');
+        chip.setAttribute('title',
+          drillsCfg         ? 'Open sub-sections' :
+          drillsCfgSection  ? 'Open this section' :
+                              'Show open tickets');
+        chip.addEventListener('click', e => {
+          e.stopPropagation();
+          if (drillsCfg)        drillPaletteIntoCfg();
+          else if (drillsCfgSection) drillPaletteIntoCfgSection(item.configSlug);
+          else                  drillPaletteIntoOpenScope(item.id);
+        });
+      }
+    }
     return button;
+  }
+
+  function drillPaletteIntoCfgSection(sectionSlug) {
+    const input = document.getElementById('hu-palette-input');
+    if (!input || !sectionSlug) return;
+    HU.paletteOpenOnlyScope = null;
+    input.value = `/cfg ${sectionSlug} `;
+    input.setSelectionRange(input.value.length, input.value.length);
+    input.focus();
+    updatePaletteFooter(input.value);
+    runPaletteSearch(input.value);
+  }
+
+  // True for commands whose scoped form runs against /api/tickets — i.e.
+  // any built-in ticket route (/t, /i, /chg, /prob, ...) and every custom
+  // ticket type discovered on the tenant.
+  function isTicketScopedCommandId(commandId) {
+    if (!commandId) return false;
+    if (HU.ticketTypeSearchMap && HU.ticketTypeSearchMap[commandId]) return true;
+    const def = ENTITY_SEARCH_MAP[commandId];
+    return !!(def && def.route === 'ticket');
+  }
+
+  function drillPaletteIntoCfg() {
+    const input = document.getElementById('hu-palette-input');
+    if (!input) return;
+    HU.paletteOpenOnlyScope = null;
+    input.value = '/cfg ';
+    input.setSelectionRange(input.value.length, input.value.length);
+    input.focus();
+    updatePaletteFooter(input.value);
+    runPaletteSearch(input.value);
+  }
+
+  function drillPaletteIntoOpenScope(commandId) {
+    const input = document.getElementById('hu-palette-input');
+    if (!input) return;
+    HU.paletteOpenOnlyScope = commandId;
+    input.value = `/${commandId} `;
+    input.setSelectionRange(input.value.length, input.value.length);
+    input.focus();
+    updatePaletteFooter(input.value);
+    runPaletteSearch(input.value);
   }
 
   function makeShowAllButton(item, index) {
@@ -5388,10 +5580,10 @@ ${orderBy}
   function slaArcSvg(openedStr, dueStr, closedStr, slaState) {
     const r = 30, circ = 2 * Math.PI * r, arc = circ / 2, offset = -(circ / 4);
     let pct = 0, color = '#94a3b8', label = '--';
-    const opened = openedStr ? new Date(openedStr).getTime() : 0;
-    const due    = dueStr    ? new Date(dueStr).getTime()    : 0;
+    const opened = openedStr ? parseHaloDate(openedStr).getTime() : 0;
+    const due    = dueStr    ? parseHaloDate(dueStr).getTime()    : 0;
     if (opened && due) {
-      const now = closedStr ? new Date(closedStr).getTime() : Date.now();
+      const now = closedStr ? parseHaloDate(closedStr).getTime() : Date.now();
       pct   = Math.min(Math.max((now - opened) / (due - opened), 0), 1);
       label = slaState === 'O' ? 'Over' : slaState === 'E' ? 'Excl' : `${Math.round(pct * 100)}%`;
       color = slaState === 'O' ? '#ef4444' : slaState === 'E' ? '#94a3b8'
@@ -5419,17 +5611,56 @@ ${orderBy}
     return '#3b82f6';
   }
 
-  function classifyAction(outcome) {
+  // Look up an action outcome's tenant-configured colour from Halo's cache.
+  // Tries cache_actionoutcome first (Halo's canonical key) then cache_outcome
+  // (older / alternative). Matches by id first, then case-insensitive name.
+  // Returns a sanitised hex/rgb string or '' when nothing usable was found.
+  function lookupOutcomeColour(outcomeId, outcomeName) {
+    const candidates = ['cache_actionoutcome', 'cache_outcome'];
+    const nameKey = String(outcomeName || '').trim().toLowerCase();
+    const idNum = Number(outcomeId);
+    for (const key of candidates) {
+      const cache = readHaloCacheLookup(key);
+      if (!cache) continue;
+      let row = Number.isFinite(idNum) ? cache.get(idNum) : null;
+      if (!row && nameKey) {
+        for (const v of cache.values()) {
+          if (String(v?.name || v?.outcome || '').trim().toLowerCase() === nameKey) {
+            row = v;
+            break;
+          }
+        }
+      }
+      if (!row) continue;
+      const raw = String(row.colour || row.color || '').trim();
+      if (/^(#[0-9a-f]{3,8}|rgb(a)?\([^)]+\))$/i.test(raw)) return raw;
+    }
+    return '';
+  }
+
+  // Accepts either a plain outcome string (legacy callers) or the flattened
+  // action object so the tenant-configured cache colour can be applied.
+  function classifyAction(outcomeOrAction) {
+    let outcome = '';
+    let cacheColour = '';
+    if (outcomeOrAction && typeof outcomeOrAction === 'object') {
+      outcome = outcomeOrAction['Outcome'] || '';
+      cacheColour = lookupOutcomeColour(outcomeOrAction['Outcome ID'], outcome);
+    } else {
+      outcome = outcomeOrAction;
+    }
     const o = String(outcome || '').toLowerCase();
-    if (/email|mail|sent/.test(o))                          return { label: 'Email',         color: '#3b82f6' };
-    if (/status|changed|closed|resolved|opened/.test(o))   return { label: 'Status change',  color: '#f59e0b' };
-    if (/time|spent|logged/.test(o))                        return { label: 'Time entry',     color: '#8b5cf6' };
-    return                                                         { label: 'Note',            color: '#10b981' };
+    let base;
+    if (/email|mail|sent/.test(o))                          base = { label: 'Email',         color: '#3b82f6' };
+    else if (/status|changed|closed|resolved|opened/.test(o)) base = { label: 'Status change', color: '#f59e0b' };
+    else if (/time|spent|logged/.test(o))                   base = { label: 'Time entry',     color: '#8b5cf6' };
+    else                                                    base = { label: 'Note',           color: '#10b981' };
+    return cacheColour ? { ...base, color: cacheColour } : base;
   }
 
   function timeAgo(dateStr) {
     if (!dateStr) return '--';
-    const d = new Date(dateStr);
+    const d = parseHaloDate(dateStr);
     if (isNaN(d.getTime())) return String(dateStr);
     const diff = Date.now() - d.getTime();
     const mins = Math.floor(diff / 60000);
@@ -5495,84 +5726,198 @@ ${orderBy}
     const closed = (() => {
       const c = ticket.dateclosed || ticket.datecleared;
       if (!c || !opened) return c;
-      return new Date(c).getTime() < new Date(opened).getTime() ? '' : c;
+      return parseHaloDate(c).getTime() < parseHaloDate(opened).getTime() ? '' : c;
     })();
     if (!opened) return '';
-    const od = new Date(opened).getTime();
-    const cd = closed ? new Date(closed).getTime() : null;
+    const od = parseHaloDate(opened).getTime();
+    const cd = closed ? parseHaloDate(closed).getTime() : null;
     const now = cd || Date.now();
 
-    // Halo doesn't expose a `dateresponded` field — it advances
-    // `slaactiondate` past respondbydate when the Respond stage completes.
+    // Halo exposes the actual response timestamp as `responsedate` (plus a
+    // categorical `slaresponsestate`: "I" inside / "O" outside / "E" excluded
+    // / "A" awaiting). When `responsedate` is present, calc compares it to
+    // respondbydate and produces the correct met-on-time vs met-late split.
+    // metFlag is only used as a fallback when we know the stage completed
+    // but lack a timestamp — and we suppress it when Halo explicitly flags
+    // the Respond SLA as breached ('O'), so a closed-late ticket stops
+    // showing as Met.
     const respondDueIso = ticket.respondbydate || ticket.first_respond_by_date;
-    const respondMet = !!(respondDueIso && ticket.slaactiondate &&
-      new Date(ticket.slaactiondate).getTime() > new Date(respondDueIso).getTime());
+    const respondMetIso = ticket.responsedate || null;
+    const respondState = String(ticket.slaresponsestate || '').toUpperCase();
+    const respondMet = !respondMetIso && respondState !== 'O' && !!respondDueIso && (
+      respondState === 'I' ||
+      !!closed ||
+      (ticket.slaactiondate && parseHaloDate(ticket.slaactiondate).getTime() > parseHaloDate(respondDueIso).getTime())
+    );
 
     const calc = (dueIso, name, metIso, metFlag) => {
       if (!dueIso) return null;
-      const dd = new Date(dueIso).getTime();
+      const dd = parseHaloDate(dueIso).getTime();
       if (!dd || dd <= od) return null;
-      const md = metIso ? new Date(metIso).getTime() : null;
+      const md = metIso ? parseHaloDate(metIso).getTime() : null;
       const validMd = Number.isFinite(md) && md > od;
       const stopTime = validMd ? md : (cd || null);
       const stopNow = stopTime || Date.now();
       const usedPct = Math.min(Math.max((stopNow - od) / (dd - od), 0), 1);
 
-      let cls, note, isMet = false, pct;
+      // Two-band fill: pctUsed is what was actually consumed; pctTotal is
+      // the full extent of the segment we want to colour (used + spare).
+      // For closed-and-met SLAs, pctUsed < pctTotal=1 so the bar/donut
+      // shows the consumed portion in primary colour with the remaining
+      // headroom as a lighter overlay. For active or breached SLAs, both
+      // equal so a single fill renders.
+      let cls, note, isMet = false, pctUsed, pctTotal, noteState = 'plain', overshootMs = 0;
       if (validMd) {
         isMet = true;
-        pct = 1;
-        if (md <= dd) { cls = 'is-ok'; note = 'Met'; }
-        else { cls = 'is-danger'; note = `Met (${formatDurationShort(md - dd)} over)`; }
+        if (md <= dd) {
+          cls = 'is-ok'; note = ''; noteState = 'met';
+          pctUsed = usedPct;   // stopTime was md, so this is the real consumed fraction
+          pctTotal = 1;
+        } else {
+          cls = 'is-danger'; note = `${formatDurationShort(md - dd)} over`; noteState = 'breached';
+          pctUsed = 1; pctTotal = 1;
+          overshootMs = md - dd;
+        }
       } else if (metFlag) {
         isMet = true;
-        pct = 1;
-        cls = 'is-ok';
-        note = 'Met';
+        cls = 'is-ok'; note = ''; noteState = 'met';
+        // No exact met timestamp — we can't honestly show "how much was
+        // consumed". Render a full bar; the icon still tells the user it's met.
+        pctUsed = 1; pctTotal = 1;
       } else {
-        pct = usedPct;
-        cls = pct < 0.5 ? 'is-ok' : pct < 0.9 ? 'is-warn' : 'is-danger';
+        cls = usedPct < 0.5 ? 'is-ok' : usedPct < 0.9 ? 'is-warn' : 'is-danger';
         const diffMs = dd - Date.now();
-        note = cd ? 'Closed'
-          : diffMs > 0 ? `${formatDurationShort(diffMs)} left`
-          : `${formatDurationShort(-diffMs)} over`;
+        if (cd) {
+          note = 'Closed';
+          pctUsed = usedPct; pctTotal = usedPct;
+        } else if (diffMs > 0) {
+          note = `${formatDurationShort(diffMs)} left`;
+          pctUsed = usedPct; pctTotal = usedPct;
+        } else {
+          note = `${formatDurationShort(-diffMs)} over`;
+          noteState = 'breached';
+          pctUsed = 1; pctTotal = 1;
+          overshootMs = -diffMs;
+        }
       }
-      return { name, pct, cls, note, isMet };
+      // `pct` aliases pctTotal so the active-critical sort below can compare
+      // active SLAs by usage. `overshootMs` is the magnitude of the breach,
+      // used by the closed-verdict picker to surface the worst late SLA.
+      return { name, pct: pctTotal, pctUsed, pctTotal, cls, note, isMet, noteState, overshootMs, durationMs: dd - od };
     };
     const slas = [
-      calc(respondDueIso, 'Respond', null, respondMet),
+      calc(respondDueIso, 'Respond', respondMetIso, respondMet),
       calc(ticket.fixbydate, 'Fix', cd ? new Date(cd).toISOString() : null, false)
     ].filter(Boolean);
     if (!slas.length) return '';
 
-    // Pick the most critical: active SLAs always beat met ones (no point
-    // surfacing a finished deadline), then worst class, then highest %.
-    const classOrder = { 'is-ok': 0, 'is-warn': 1, 'is-danger': 2 };
-    const critical = slas.slice().sort((a, b) => {
-      // Active (not met) wins over met.
-      if (a.isMet !== b.isMet) return a.isMet ? 1 : -1;
-      const co = classOrder[b.cls] - classOrder[a.cls];
-      return co !== 0 ? co : b.pct - a.pct;
-    })[0];
+    // Closed-ticket summary: instead of arbitrarily surfacing one of two
+    // finished SLAs, collapse to a verdict that reflects how the ticket
+    // landed. "All SLAs met" if every SLA closed on time, "Closed late"
+    // (with the worst overshoot) if any breached.
+    let critical;
+    if (cd) {
+      const breaches = slas.filter(s => s.cls === 'is-danger');
+      if (breaches.length) {
+        // Worst breach wins by overshoot magnitude (pct is 1 for any
+        // breached SLA so it doesn't distinguish them). The red cross icon
+        // already conveys "late", so we drop the "Closed late ·" prefix
+        // and just show the offending SLA + overshoot — keeps the centre
+        // text inside the donut bowl.
+        const worst = breaches.slice().sort((a, b) => b.overshootMs - a.overshootMs)[0];
+        critical = { name: worst.name, pct: 1, cls: 'is-danger', note: `${worst.name} ${worst.note || 'over'}`, isMet: true, noteState: 'breached' };
+      } else {
+        critical = { name: 'All', pct: 1, cls: 'is-ok', note: 'All met', isMet: true, noteState: 'met' };
+      }
+    } else {
+      // Pick the most critical: active SLAs always beat met ones (no point
+      // surfacing a finished deadline), then worst class, then highest %.
+      const classOrder = { 'is-ok': 0, 'is-warn': 1, 'is-danger': 2 };
+      critical = slas.slice().sort((a, b) => {
+        // Active (not met) wins over met.
+        if (a.isMet !== b.isMet) return a.isMet ? 1 : -1;
+        const co = classOrder[b.cls] - classOrder[a.cls];
+        return co !== 0 ? co : b.pct - a.pct;
+      })[0];
+    }
 
     const W = 140, H = 48;
     const cx = W / 2, cy = H - 4;
     const r = 40, stroke = 8;
-    const arcPath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
     const arcLen = Math.PI * r;
-    // Animated fill via stroke-dashoffset: start with the arc fully hidden
-    // (offset = full arc length) and ease down to the target offset.
-    const targetOffset = (arcLen * (1 - critical.pct)).toFixed(2);
-    const tipParts = slas.map(s => `${s.name}: ${Math.round(s.pct * 100)}% (${s.note})`);
+    // Half-arc parameterisation: f=0 at the left end, f=1 at the right end.
+    // The arc runs counter-clockwise from left → top → right.
+    const pointAt = f => {
+      const theta = Math.PI * (1 - f);
+      return [cx + r * Math.cos(theta), cy - r * Math.sin(theta)];
+    };
+    const arcPathFromTo = (f1, f2) => {
+      const [x1, y1] = pointAt(f1);
+      const [x2, y2] = pointAt(f2);
+      return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+    };
+
+    // Fixed 40/60 split between Respond and Fix to match the SLA bars.
+    // A single SLA (e.g. tickets with only a Fix target) takes the full
+    // arc. A 4% gap on either side of each segment keeps the boundary
+    // visually distinct (~8% total between Respond and Fix).
+    const segments = [];
+    let cursor = 0;
+    const gap = slas.length > 1 ? 0.04 : 0; // 4% of the arc per side
+    slas.forEach((sla, i) => {
+      const share = slas.length === 1 ? 1
+        : sla.name === 'Respond' ? 0.4
+        : 0.6;
+      const fStart = cursor + (i === 0 ? 0 : gap);
+      const fEnd   = cursor + share - (i === slas.length - 1 ? 0 : gap);
+      cursor += share;
+      segments.push({ sla, fStart, fEnd });
+    });
+
+    const tipParts = slas.map(s => {
+      const noteText = s.note || (s.noteState === 'met' ? 'Met' : s.noteState === 'breached' ? 'Breached' : '');
+      // pctUsed is the consumed fraction (meaningful for met-on-time tickets
+      // too). pctTotal/pct is always 1 for any finished SLA so it doesn't
+      // tell you anything about how close to the deadline you actually got.
+      return `${s.name}: ${Math.round(s.pctUsed * 100)}%${noteText ? ` (${noteText})` : ''}`;
+    });
+
+    const segHtml = segments.map(({ sla, fStart, fEnd }) => {
+      const segLen = (fEnd - fStart) * arcLen;
+      const usedLen  = segLen * sla.pctUsed;
+      const totalLen = segLen * sla.pctTotal;
+      const segPath = arcPathFromTo(fStart, fEnd);
+      // Animation: dasharray "segLen segLen" + dashoffset from segLen (fully
+      // hidden) to (segLen - fillLen) (fillLen revealed at the start). Reuses
+      // the existing keyframe (--sla-arc-len → --sla-end-offset).
+      const usedOffset  = (segLen - usedLen).toFixed(2);
+      const totalOffset = (segLen - totalLen).toFixed(2);
+      // The spare overlay is the gap between the used portion and the full
+      // extent — only rendered when there's actually a gap (closed-met-on-time).
+      const hasSpare = totalLen > usedLen + 0.01;
+      return `
+        <path d="${segPath}" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" class="hu-360-sla-donut-track"/>
+        ${hasSpare ? `<path d="${segPath}" fill="none" stroke-width="${stroke}" stroke-linecap="round"
+          class="hu-360-sla-donut-fill hu-360-sla-donut-fill-spare ${sla.cls}"
+          style="stroke-dasharray:${segLen.toFixed(2)} ${segLen.toFixed(2)}; --sla-arc-len:${segLen.toFixed(2)}; --sla-end-offset:${totalOffset};"/>` : ''}
+        ${usedLen > 0 ? `<path d="${segPath}" fill="none" stroke-width="${stroke}" stroke-linecap="round"
+          class="hu-360-sla-donut-fill ${sla.cls}"
+          style="stroke-dasharray:${segLen.toFixed(2)} ${segLen.toFixed(2)}; --sla-arc-len:${segLen.toFixed(2)}; --sla-end-offset:${usedOffset};"/>` : ''}
+      `;
+    }).join('');
+
+    const centerIcon = slaStatusIconHtml(critical.noteState);
+    const centerLabel = critical.noteState === 'met'
+      ? (critical.note && critical.note !== 'Met' ? `${centerIcon}<span class="hu-360-sla-donut-center-text">${escapeHtml(critical.note)}</span>` : centerIcon)
+      : critical.noteState === 'breached'
+        ? `${centerIcon}<span class="hu-360-sla-donut-center-text">${escapeHtml(critical.note)}</span>`
+        : escapeHtml(critical.note);
 
     return `<div class="hu-360-sla-donut" title="${escapeHtml(tipParts.join('\n'))}">
       <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true">
-        <path d="${arcPath}" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" class="hu-360-sla-donut-track"/>
-        <path d="${arcPath}" fill="none" stroke-width="${stroke}" stroke-linecap="round"
-          class="hu-360-sla-donut-fill ${critical.cls}"
-          style="stroke-dasharray:${arcLen.toFixed(2)} ${arcLen.toFixed(2)}; --sla-arc-len:${arcLen.toFixed(2)}; --sla-end-offset:${targetOffset};"/>
+        ${segHtml}
       </svg>
-      <div class="hu-360-sla-donut-center ${critical.cls}">${escapeHtml(critical.note)}</div>
+      <div class="hu-360-sla-donut-center ${critical.cls}">${centerLabel}</div>
     </div>`;
   }
 
@@ -5581,7 +5926,7 @@ ${orderBy}
     const lastUpdate = ticket.last_update || ticket.lastactiondate || '';
     const badges = [];
     if (opened) {
-      const days = Math.max(0, Math.floor((Date.now() - new Date(opened).getTime()) / 86400000));
+      const days = Math.max(0, Math.floor((Date.now() - parseHaloDate(opened).getTime()) / 86400000));
       badges.push(days === 0 ? 'Opened today' : `Open ${days}d`);
     }
     if (actions?.length) badges.push(`${actions.length} action${actions.length === 1 ? '' : 's'}`);
@@ -5651,60 +5996,77 @@ ${orderBy}
     const closedIso = (() => {
       const c = ticket.dateclosed || ticket.datecleared;
       if (!c || !openedIso) return c;
-      return new Date(c).getTime() < new Date(openedIso).getTime() ? '' : c;
+      return parseHaloDate(c).getTime() < parseHaloDate(openedIso).getTime() ? '' : c;
     })();
 
-    // Halo doesn't expose a `dateresponded` field. Instead it advances
-    // `slaactiondate` to the next stage as each SLA stage completes.
-    // When slaactiondate has moved past respondbydate, the Respond stage
-    // is done. For Fix, we use dateclosed as the met time so we get the
-    // accurate on-time-vs-late split.
+    // Halo exposes the actual response timestamp as `responsedate` (the
+    // datetime the agent first responded). When set, that flows through as
+    // `metIso` to buildBar so we get the exact met-on-time vs met-late split.
+    // `slaresponsestate` is the categorical signal: "I" inside / "O" outside
+    // / "E" excluded / "A" awaiting — used to short-circuit metFlag so a
+    // closed-late ticket doesn't show as Met just because it's closed.
     const respondDueIso = ticket.respondbydate || ticket.first_respond_by_date;
-    const respondMet = !!(respondDueIso && ticket.slaactiondate &&
-      new Date(ticket.slaactiondate).getTime() > new Date(respondDueIso).getTime());
+    const respondMetIso = ticket.responsedate || null;
+    const respondState = String(ticket.slaresponsestate || '').toUpperCase();
+    const respondMet = !respondMetIso && respondState !== 'O' && !!respondDueIso && (
+      respondState === 'I' ||
+      !!closedIso ||
+      (ticket.slaactiondate && parseHaloDate(ticket.slaactiondate).getTime() > parseHaloDate(respondDueIso).getTime())
+    );
 
     // Build a bar. metIso = exact met timestamp (used for on-time/late split);
     // metFlag = "we know it was met but don't have the exact time" (treats
     // as on-time since we can't prove otherwise without the timestamp).
     const buildBar = (label, dueIso, metIso, metFlag) => {
       if (!openedIso || !dueIso) return null;
-      const od = new Date(openedIso).getTime();
-      const dd = new Date(dueIso).getTime();
+      const od = parseHaloDate(openedIso).getTime();
+      const dd = parseHaloDate(dueIso).getTime();
       if (!od || !dd || dd <= od) return null;
-      const cd = closedIso ? new Date(closedIso).getTime() : null;
-      const md = metIso ? new Date(metIso).getTime() : null;
+      const cd = closedIso ? parseHaloDate(closedIso).getTime() : null;
+      const md = metIso ? parseHaloDate(metIso).getTime() : null;
       const validMd = Number.isFinite(md) && md > od;
       const stopTime = validMd ? md : cd;
       const now = stopTime || Date.now();
       const usedPct = Math.min(Math.max((now - od) / (dd - od), 0), 1);
 
-      let cls, noteLeft, pct;
+      let cls, noteLeft, pctUsed, pctTotal, noteState = 'plain';
       if (validMd) {
-        pct = 1;
         if (md <= dd) {
-          cls = 'is-ok';
-          noteLeft = 'Met';
+          cls = 'is-ok'; noteLeft = ''; noteState = 'met';
+          // Closed/met on time: pctUsed is the actual consumed slice; the
+          // remainder (1 - pctUsed) renders as the lighter spare overlay.
+          pctUsed = usedPct; pctTotal = 1;
         } else {
-          cls = 'is-danger';
-          noteLeft = `Met (${formatDurationShort(md - dd)} over)`;
+          cls = 'is-danger'; noteLeft = `${formatDurationShort(md - dd)} over`; noteState = 'breached';
+          pctUsed = 1; pctTotal = 1;
         }
       } else if (metFlag) {
-        // No exact met timestamp — show as on-time Met. The detail SLA bars
-        // below the donut would surface a breach via Halo's other signals.
-        pct = 1;
-        cls = 'is-ok';
-        noteLeft = 'Met';
+        // No exact met timestamp — full bar (we can't honestly split it).
+        cls = 'is-ok'; noteLeft = ''; noteState = 'met';
+        pctUsed = 1; pctTotal = 1;
       } else {
-        pct = usedPct;
-        cls = pct < 0.5 ? 'is-ok' : pct < 0.9 ? 'is-warn' : 'is-danger';
+        cls = usedPct < 0.5 ? 'is-ok' : usedPct < 0.9 ? 'is-warn' : 'is-danger';
         const diffMs = dd - Date.now();
-        noteLeft = cd ? 'Closed'
-          : diffMs > 0 ? `${formatDurationShort(diffMs)} left`
-          : `${formatDurationShort(-diffMs)} over`;
+        if (cd) {
+          noteLeft = 'Closed';
+          pctUsed = usedPct; pctTotal = usedPct;
+        } else if (diffMs > 0) {
+          noteLeft = `${formatDurationShort(diffMs)} left`;
+          pctUsed = usedPct; pctTotal = usedPct;
+        } else {
+          noteLeft = `${formatDurationShort(-diffMs)} over`;
+          noteState = 'breached';
+          pctUsed = 1; pctTotal = 1;
+        }
       }
-      return { label, pctPx: Math.round(pct * 100), cls, noteLeft };
+      return {
+        label, cls, noteLeft, noteState,
+        pctUsedPx:  Math.round(pctUsed * 100),
+        pctTotalPx: Math.round(pctTotal * 100),
+        durationMs: dd - od
+      };
     };
-    const respondBar = buildBar('Respond', respondDueIso, null, respondMet);
+    const respondBar = buildBar('Respond', respondDueIso, respondMetIso, respondMet);
     const fixBar     = buildBar('Fix',     ticket.fixbydate, closedIso, false);
     const bars = [respondBar, fixBar].filter(Boolean);
 
@@ -5733,15 +6095,31 @@ ${orderBy}
         </div>` : ''}
       <div class="hu-360-wf-bar${closedIso ? '' : ' is-active'}" data-wf-bar>${segmentsHtml(placeholderTotal, current)}</div>
 
-      ${bars.length ? `<div class="hu-360-status-bars">
-        ${bars.map(b => `
-          <div class="hu-360-sla-row">
+      ${bars.length ? `<div class="hu-360-status-bars hu-360-status-bars--split">
+        ${bars.map(b => {
+          // Fixed share: Respond gets 40%, Fix gets 60%. When only one of
+          // the two exists, that one takes the full row.
+          const sharePct = bars.length === 1 ? 100
+            : b.label === 'Respond' ? 40
+            : 60;
+          const icon = slaStatusIconHtml(b.noteState);
+          const tipText = b.noteState === 'met' ? `Met (used ${b.pctUsedPx}%)` : b.noteLeft;
+          const noteHtml = icon
+            ? `${icon}${b.noteLeft ? ` <span class="hu-360-sla-due-text">${escapeHtml(b.noteLeft)}</span>` : ''}`
+            : escapeHtml(b.noteLeft);
+          const hasSpare = b.pctTotalPx > b.pctUsedPx;
+          return `
+          <div class="hu-360-sla-row" style="flex:${sharePct} 1 0" title="${escapeHtml(b.label + ': ' + tipText + ' (' + formatDurationShort(b.durationMs) + ' SLA)')}">
             <div class="hu-360-sla-label-row">
               <span class="hu-360-sla-label">${escapeHtml(b.label)}</span>
-              <span class="hu-360-sla-due ${b.cls}">${escapeHtml(b.noteLeft)}</span>
+              <span class="hu-360-sla-due ${b.cls}">${noteHtml}</span>
             </div>
-            <div class="hu-360-sla-track"><div class="hu-360-sla-fill ${b.cls}" style="width:${b.pctPx}%;--sla-target-width:${b.pctPx}%"></div></div>
-          </div>`).join('')}
+            <div class="hu-360-sla-track">
+              ${hasSpare ? `<div class="hu-360-sla-fill hu-360-sla-fill-spare ${b.cls}" style="width:${b.pctTotalPx}%;--sla-target-width:${b.pctTotalPx}%"></div>` : ''}
+              <div class="hu-360-sla-fill ${b.cls}" style="width:${b.pctUsedPx}%;--sla-target-width:${b.pctUsedPx}%"></div>
+            </div>
+          </div>`;
+        }).join('')}
       </div>` : ''}
 
       <div class="hu-360-dates">
@@ -5778,14 +6156,29 @@ ${orderBy}
     return sec;
   }
 
-  // Short "2d 4h" / "45m" formatter for SLA bar notes.
+  // Short "2d 4h" / "45m" / "30s" formatter for SLA bar notes.
   function formatDurationShort(ms) {
-    if (!Number.isFinite(ms) || ms < 0) return '0m';
+    if (!Number.isFinite(ms) || ms < 0) return '0s';
+    if (ms < 60000) return `${Math.max(1, Math.round(ms / 1000))}s`;
     const mins = Math.floor(ms / 60000);
     if (mins < 60) return `${mins}m`;
     const hours = Math.floor(mins / 60);
     if (hours < 48) return `${hours}h`;
     return `${Math.floor(hours / 24)}d`;
+  }
+
+  // SLA status icon — green check for met-on-time, red cross for breached
+  // (both met-late and live past-due). Empty for plain text states.
+  function slaStatusIconHtml(state) {
+    if (state === 'met') {
+      return `<svg class="hu-sla-status-icon hu-sla-status-icon--met" viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>`;
+    }
+    if (state === 'breached') {
+      // Filled disc + white X cutout — reads as a "rejected" badge with
+      // strong contrast against the green-check counterpart.
+      return `<svg class="hu-sla-status-icon hu-sla-status-icon--breached" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="6" fill="currentColor"/><path d="M4 4l4 4M8 4l-4 4" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+    }
+    return '';
   }
 
   // Custom fields — Halo's per-ticket-type fields with their current values.
@@ -5958,7 +6351,7 @@ ${orderBy}
       let avgNote = '';
       if (closed.length) {
         const ms = closed.reduce((sum, t) => {
-          return sum + (new Date(t.dateclosed).getTime() - new Date(t.dateoccurred).getTime());
+          return sum + (parseHaloDate(t.dateclosed).getTime() - parseHaloDate(t.dateoccurred).getTime());
         }, 0) / closed.length;
         const hours = ms / 3_600_000;
         avgNote = hours < 24
@@ -6726,7 +7119,8 @@ ${orderBy}
           method: 'POST',
           body: [{
             ticket_id: Number(ticketId),
-            timetaken: m,
+            // Halo stores timetaken in decimal hours, not minutes.
+            timetaken: m / 60,
             note: note,
             hiddenfromuser: hidden,
             outcome: 'Time Logged'
@@ -7090,7 +7484,7 @@ ${orderBy}
       // back to "--" rather than "Jan 01, 1900".
       const realDate = v => {
         if (!v) return '';
-        const d = new Date(v);
+        const d = parseHaloDate(v);
         if (isNaN(d.getTime())) return '';
         if (d.getFullYear() < 2000) return '';
         return v;
@@ -7110,7 +7504,7 @@ ${orderBy}
           const closed = realDate(ticket.dateclosed) || realDate(ticket.datecleared) || realDate(ticket.agreedcleared) || '';
           // Sandbox fixtures sometimes have a close date before the open date.
           // Treat that as "not closed" so SLA arc + time card agree.
-          if (closed && opened && new Date(closed).getTime() < new Date(opened).getTime()) return '';
+          if (closed && opened && parseHaloDate(closed).getTime() < parseHaloDate(opened).getTime()) return '';
           return closed;
         })(),
         'User ID':               ticket.user_id || 0,
@@ -7134,10 +7528,12 @@ ${orderBy}
       actions = actionRows.map(a => ({
         'Action ID':    a.id,
         'Outcome':      nameish(a.outcome) || nameish(a.actioncode_name) || nameish(a.who_action_text),
+        'Outcome ID':   a.outcome_id || a.actionoutcome_id || 0,
         'Note':         nameish(a.note),
         'Who':          nameish(a.who) || nameish(a.agent_name),
         'When':         realDate(a.datetime) || realDate(a.actiondatecreated) || realDate(a.actiondate) || realDate(a.who_changed),
         'Time Taken':   a.timetaken || 0,
+        'Time Taken Adjusted': a.timetaken_adjusted || 0,
         'Date Emailed': realDate(a.dateemailed),
         'Hidden':       a.hiddenfromuser ? 1 : 0
       }));
@@ -7167,13 +7563,27 @@ ${orderBy}
       const banner = renderTicket360Banners(ticket);
       if (banner) wrap.appendChild(banner);
 
-      // Priority chip modifier class — picks low / medium / high / critical
-      // from the ticket's priority name. Defaults to medium when unknown.
+      // Priority chip — prefer Halo's per-tenant colour from cache_priority
+      // (matches the configured palette in Settings → Priorities). Falls back
+      // to the regex-derived `hu-chip-priority-*` class when the cache is
+      // empty or the colour isn't a valid hex/rgb.
       const priorityName = nameish(ticket.priority) || nameish(ticket.priority_name) || '';
-      const priorityCls = /critical|p1/i.test(priorityName) ? 'hu-chip-priority-critical'
-                        : /urgent|high|p2/i.test(priorityName) ? 'hu-chip-priority-high'
-                        : /low|p4/i.test(priorityName) ? 'hu-chip-priority-low'
-                        : 'hu-chip-priority-medium';
+      const priorityColour = (() => {
+        const cache = readHaloCacheLookup('cache_priority');
+        const row = cache?.get(Number(ticket.priority_id));
+        const raw = String(row?.colour || row?.color || '').trim();
+        return /^(#[0-9a-f]{3,8}|rgb(a)?\([^)]+\))$/i.test(raw) ? raw : '';
+      })();
+      const priorityCls = priorityColour
+        ? 'hu-chip-priority-medium'  // base shape; inline style overrides colour
+        : /critical|p1/i.test(priorityName) ? 'hu-chip-priority-critical'
+        : /urgent|high|p2/i.test(priorityName) ? 'hu-chip-priority-high'
+        : /low|p4/i.test(priorityName) ? 'hu-chip-priority-low'
+        : 'hu-chip-priority-medium';
+      const priorityStyle = priorityColour
+        ? ` style="background:${priorityColour};border-color:${priorityColour};color:#fff;text-shadow:0 1px 1px rgba(0,0,0,0.25)"`
+        : '';
+      const priorityModClass = priorityColour ? ' hu-chip--colored' : '';
 
       // Format like the search results: [SR-0002177] using the ticket type's
       // email tag override. Falls back to the generated 2-letter prefix from
@@ -7216,8 +7626,8 @@ ${orderBy}
         <div class="hu-360-meta-row">
           <div class="hu-360-meta-col">
             <div class="hu-chip-row">
-              ${summary['Status'] ? `<button type="button" class="hu-chip hu-chip-status${statusModClass} hu-chip-clickable" data-action="status"${statusStyle} title="Click to change status">${escapeHtml(summary['Status'])}</button>` : ''}
-              ${priorityName ? `<button type="button" class="hu-chip ${priorityCls} hu-chip-clickable" data-action="priority" title="Click to change priority">${escapeHtml(priorityName)} priority</button>` : ''}
+              ${summary['Status'] ? `<button type="button" class="hu-chip hu-chip-status${statusModClass} hu-chip-clickable" data-action="status"${statusStyle} title="Click to change status">${escapeHtml(summary['Status'])}<svg class="hu-chip-caret" viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></button>` : ''}
+              ${priorityName ? `<button type="button" class="hu-chip ${priorityCls}${priorityModClass} hu-chip-clickable" data-action="priority"${priorityStyle} title="Click to change priority">${escapeHtml(priorityName)} priority<svg class="hu-chip-caret" viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg></button>` : ''}
               ${summary['Ticket Type'] ? `<span class="hu-chip hu-chip-category">${escapeHtml(summary['Ticket Type'])}</span>` : ''}
             </div>
             ${renderTicket360AgingBadges(ticket, actions)}
@@ -7333,7 +7743,10 @@ ${orderBy}
         openTicketChoicePicker(statusChip, options, ticket.status_id, async (opt) => {
           await updateTicketField(ticket.id, { status_id: Number(opt.id) });
           ticket.status_id = Number(opt.id);
+          // Replace the chip's label without wiping the caret SVG.
+          const caret = statusChip.querySelector('.hu-chip-caret');
           statusChip.textContent = opt.name;
+          if (caret) statusChip.appendChild(caret);
           // Re-skin the chip to the new status's Halo colour. The picker
           // passes the full status record, so we can read .colour directly.
           const raw = String(opt.colour || opt.color || opt.chip_color || opt.status_colour || '').trim();
@@ -7365,7 +7778,23 @@ ${orderBy}
         openTicketChoicePicker(priorityChip, options, ticket.priority_id, async (opt) => {
           await updateTicketField(ticket.id, { priority_id: Number(opt.id) });
           ticket.priority_id = Number(opt.id);
+          // Preserve the caret SVG when relabeling.
+          const caret = priorityChip.querySelector('.hu-chip-caret');
           priorityChip.textContent = `${opt.name} priority`;
+          if (caret) priorityChip.appendChild(caret);
+          // Reskin the chip with the newly-picked colour (sanitised).
+          const raw = String(opt.colour || opt.color || '').trim();
+          const safe = /^(#[0-9a-f]{3,8}|rgb(a)?\([^)]+\))$/i.test(raw) ? raw : '';
+          if (safe) {
+            priorityChip.style.background = safe;
+            priorityChip.style.borderColor = safe;
+            priorityChip.style.color = '#fff';
+            priorityChip.style.textShadow = '0 1px 1px rgba(0,0,0,0.25)';
+            priorityChip.classList.add('hu-chip--colored');
+          } else {
+            priorityChip.removeAttribute('style');
+            priorityChip.classList.remove('hu-chip--colored');
+          }
         });
       });
 
@@ -7463,13 +7892,16 @@ ${orderBy}
         if (/change|update|email|note|user.*chang|priority|type/.test(o))           return 'is-warn';
         return 'is-muted';
       };
+      // When the tenant has configured a colour for this outcome in Halo
+      // Settings, use it for an inline override of the semantic class.
+      const dotColour = action => lookupOutcomeColour(action['Outcome ID'], action['Outcome']);
 
       const displayActions = actions.slice(0, 6);
       // The "Opened" event is the *chronologically earliest* action, not any
       // action whose outcome happens to contain "logged" (which would catch
       // "Time Logged" entries too). Find it by min timestamp.
       const dated = actions.filter(a => a['When']).map(a => ({
-        id: a['Action ID'], t: new Date(a['When']).getTime()
+        id: a['Action ID'], t: parseHaloDate(a['When']).getTime()
       })).filter(d => Number.isFinite(d.t));
       const openEventActionId = dated.length
         ? dated.reduce((min, x) => x.t < min.t ? x : min, dated[0]).id
@@ -7509,16 +7941,22 @@ ${orderBy}
           noteHtml = `<div class="hu-360-tl-note">${escapeHtml(action['Who'])}</div>`;
         }
 
-        const minutes = Number(action['Time Taken']) || 0;
+        const minutes = effectiveActionMinutes(action);
+        const adjusted = minutesFromTimetaken(action['Time Taken Adjusted']);
+        const rawMins = minutesFromTimetaken(action['Time Taken']);
+        const adjustedDiffers = adjusted > 0 && adjusted !== rawMins;
+        const durTitle = adjustedDiffers
+          ? `Adjusted ${formatMinutes(adjusted)} (raw ${formatMinutes(rawMins)})`
+          : 'Time logged';
         const durHtml = minutes > 0
-          ? `<span class="hu-360-tl-dur" title="Time logged">${escapeHtml(formatMinutes(minutes))}</span>`
+          ? `<span class="hu-360-tl-dur${adjustedDiffers ? ' is-adjusted' : ''}" title="${escapeHtml(durTitle)}">${escapeHtml(formatMinutes(minutes))}</span>`
           : '';
 
         const row = document.createElement('div');
         row.className = 'hu-360-tl-row';
         row.innerHTML = `
           <div class="hu-360-tl-gutter">
-            <div class="hu-360-tl-dot ${dotClass(action['Outcome'])}"></div>
+            <div class="hu-360-tl-dot ${dotClass(action['Outcome'])}"${(() => { const c = dotColour(action); return c ? ` style="background:${c};border-color:${c}"` : ''; })()}></div>
             ${!isLast ? '<div class="hu-360-tl-line"></div>' : ''}
           </div>
           <div class="hu-360-tl-body">
@@ -7624,7 +8062,7 @@ ${orderBy}
       };
       const realDate = v => {
         if (!v) return '';
-        const d = new Date(v);
+        const d = parseHaloDate(v);
         if (isNaN(d.getTime())) return '';
         if (d.getFullYear() < 2000) return '';
         return v;
@@ -7632,10 +8070,12 @@ ${orderBy}
       const rows = actionRows.map(a => ({
         'Action ID':    a.id,
         'Outcome':      nameish(a.outcome) || nameish(a.actioncode_name) || nameish(a.who_action_text),
+        'Outcome ID':   a.outcome_id || a.actionoutcome_id || 0,
         'Note':         nameish(a.note),
         'Who':          nameish(a.who) || nameish(a.agent_name),
         'When':         realDate(a.datetime) || realDate(a.actiondatecreated) || realDate(a.actiondate) || realDate(a.who_changed),
         'Time Taken':   a.timetaken || 0,
+        'Time Taken Adjusted': a.timetaken_adjusted || 0,
         'Date Emailed': realDate(a.dateemailed),
         'Hidden':       a.hiddenfromuser ? 1 : 0
       }));
@@ -7645,7 +8085,7 @@ ${orderBy}
       const totalActions = rows.length;
       const emailActions = rows.filter(row => row['Date Emailed']).length;
       const hiddenActions = rows.filter(row => ['1', 'true', 'yes'].includes(String(row['Hidden']).toLowerCase())).length;
-      const totalMinutes = rows.reduce((sum, row) => sum + (Number(row['Time Taken']) || 0), 0);
+      const totalMinutes = rows.reduce((sum, row) => sum + effectiveActionMinutes(row), 0);
       const latestAction = rows[0];
 
       const header = document.createElement('section');
@@ -7685,7 +8125,7 @@ ${orderBy}
       if (rows.length) {
         const actCounts = {};
         rows.forEach((row) => {
-          const { label, color } = classifyAction(row['Outcome']);
+          const { label, color } = classifyAction(row);
           actCounts[label] = actCounts[label] || { count: 0, color };
           actCounts[label].count++;
         });
@@ -7838,7 +8278,7 @@ ${orderBy}
         <span class="hu-list-title">${escapeHtml(action['Outcome'] || `Action ${action['Action ID']}`)}</span>
         <span class="hu-list-meta">${escapeHtml(formatDateTime(action['When']))}</span>
       </div>
-      <div class="hu-list-row-sub">${escapeHtml(action['Who'] || 'Unknown')} - ${escapeHtml(isHidden ? 'Hidden from user' : 'Visible to user')} - ${escapeHtml(formatMinutes(action['Time Taken']))}</div>
+      <div class="hu-list-row-sub">${escapeHtml(action['Who'] || 'Unknown')} - ${escapeHtml(isHidden ? 'Hidden from user' : 'Visible to user')} - ${escapeHtml(formatMinutes(effectiveActionMinutes(action)))}</div>
       ${action['Date Emailed'] ? `<div class="hu-list-row-sub">Email sent ${escapeHtml(formatDateTime(action['Date Emailed']))}</div>` : ''}
       ${action['Note'] ? `<div class="hu-list-note">${escapeHtml(action['Note'])}</div>` : ''}
     `;
@@ -7846,7 +8286,7 @@ ${orderBy}
   }
 
   function renderActionTimelineFeedRow(action, isLast = false) {
-    const { label, color } = classifyAction(action['Outcome']);
+    const { label, color } = classifyAction(action);
     const isHidden = ['1', 'true', 'yes'].includes(String(action['Hidden']).toLowerCase());
     const note = action['Note'] ? String(action['Note']) : '';
     const noteHtml = note
@@ -7855,7 +8295,8 @@ ${orderBy}
     const emailHtml = action['Date Emailed']
       ? `<div class="hu-360-tl-note">Email sent ${escapeHtml(formatDateTime(action['Date Emailed']))}</div>`
       : '';
-    const timePart = action['Time Taken'] ? ` - ${escapeHtml(formatMinutes(action['Time Taken']))}` : '';
+    const timePartMinutes = effectiveActionMinutes(action);
+    const timePart = timePartMinutes > 0 ? ` - ${escapeHtml(formatMinutes(timePartMinutes))}` : '';
 
     const row = document.createElement('div');
     row.className = 'hu-360-tl-row';
@@ -9028,7 +9469,13 @@ ${orderBy}
     if (HU.settings.doubleClickTechFields === false) return;
     const target = e.target;
     if (target.closest('#haloutils-palette-backdrop, .hu-drawer, .hu-toast')) return;
+    // Skip anything inside or attached to a form — agents often double-click
+    // labels, buttons, or option rows while editing and the overlay would
+    // hijack that interaction. Also skip native form widgets even when
+    // they're not wrapped in <form> (Halo's React app often omits it).
+    if (target.closest('form')) return;
     if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (target.closest('button, label, [role="button"], [role="combobox"], [role="listbox"], [role="textbox"], [role="searchbox"], [role="checkbox"], [role="radio"], [role="option"]')) return;
     toggleFieldOverlay();
   });
 
